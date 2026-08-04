@@ -81,9 +81,19 @@ export const TrustModal = memo(
         visible={isVisible}
         animationType="fade">
         <SafeAreaView style={Theme.TrustIssuerScreenStyle.container}>
-          <View style={{flexGrow: 1, maxHeight: SCREEN_HEIGHT * 0.25}} />
+          {/* The trust card is taller than the issuer summary alone, so the content
+              scrolls and the actions stay reachable at the bottom. */}
+          <View
+            style={{
+              flexGrow: 1,
+              maxHeight: SCREEN_HEIGHT * (verana?.did ? 0.03 : 0.25),
+            }}
+          />
 
-          <View>
+          <ScrollView
+            style={{flexShrink: 1, width: '100%'}}
+            contentContainerStyle={{paddingBottom: 8}}
+            showsVerticalScrollIndicator={true}>
             {isSuccess ? (
               <SuccessSection
                 t={t}
@@ -122,7 +132,7 @@ export const TrustModal = memo(
                 />
               </View>
             )}
-          </View>
+          </ScrollView>
 
           {!isSuccess && (
             <ActionsSection

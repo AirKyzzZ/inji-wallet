@@ -62,7 +62,11 @@ export const IssuersScreen: React.FC<
 
   const isVerificationFailed = controller.verificationErrorMessage !== '';
 
-  const issuerHost = controller.selectedIssuer?.credential_issuer_host;
+  // Picking an issuer from the list gives the whole record; a credential offer only
+  // names the credential issuer, and does so under its own context key.
+  const issuerHost =
+    controller.credentialOfferCredentialIssuer ||
+    controller.selectedIssuer?.credential_issuer_host;
   const [issuerDid, setIssuerDid] = useState<string>();
   useEffect(() => {
     let cancelled = false;

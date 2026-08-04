@@ -14,6 +14,8 @@ import {
   selectIsMinimumStorageLimitReached,
 } from './HomeScreenMachine';
 import {selectVc} from '../../machines/VerifiableCredential/VCItemMachine/VCItemSelectors';
+import {APP_EVENTS, selectCredentialOffer} from '../../machines/app';
+import {IssuerScreenTabEvents} from '../../machines/Issuers/IssuersMachine';
 
 let homeMachineService;
 function useCreateHomeMachineService() {
@@ -33,12 +35,29 @@ export function getHomeMachineService() {
 
 export function useHomeScreen(props: HomeRouteProps) {
   const service = useCreateHomeMachineService();
+  const {appService} = useContext(GlobalContext);
+  const credentialOffer = useSelector(appService, selectCredentialOffer);
+  const issuersService = useSelector(service, selectIssuersMachine);
 
   useEffect(() => {
     if (props.route.params?.activeTab != null) {
       SELECT_TAB(props.route.params.activeTab);
     }
   }, [props.route.params, props.route.params?.activeTab]);
+
+  // The issuers machine only exists once Home has navigated to it, so a deep-linked
+  // offer opens that screen first and is delivered when the child comes up.
+  useEffect(() => {
+    if (!credentialOffer) return;
+    if (!issuersService) {
+      service.send(HomeScreenEvents.GOTO_ISSUERS());
+      return;
+    }
+    issuersService.send(
+      IssuerScreenTabEvents.CREDENTIAL_OFFER_VIA_DEEP_LINK(credentialOffer),
+    );
+    appService.send(APP_EVENTS.RESET_CREDENTIAL_OFFER());
+  }, [credentialOffer, issuersService]);
 
   return {
     service,

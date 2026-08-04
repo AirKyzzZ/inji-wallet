@@ -54,6 +54,7 @@ const model = createModel(
     isKeyInvalidateError: false,
     linkCode: '',
     authorizationRequest: '',
+    credentialOffer: '',
   },
   {
     events: {
@@ -72,6 +73,7 @@ const model = createModel(
       RESET_KEY_INVALIDATE_ERROR_DISMISS: () => ({}),
       RESET_LINKCODE: () => ({}),
       RESET_AUTHORIZATION_REQUEST: () => ({}),
+      RESET_CREDENTIAL_OFFER: () => ({}),
       BIOMETRIC_CANCELLED: () => ({}),
     },
   },
@@ -100,6 +102,9 @@ export const appMachine = model.createMachine(
       },
       RESET_AUTHORIZATION_REQUEST: {
         actions: ['resetAuthorizationRequest'],
+      },
+      RESET_CREDENTIAL_OFFER: {
+        actions: ['resetCredentialOffer'],
       },
       DECRYPT_ERROR_DISMISS: {
         actions: ['unsetIsDecryptError'],
@@ -254,6 +259,15 @@ export const appMachine = model.createMachine(
                   {
                     src: 'resetOVPDeepLinkIntent',
                   },
+                  {
+                    src: 'getCredentialOfferDeepLinkIntent',
+                    onDone: {
+                      actions: ['setCredentialOffer'],
+                    },
+                  },
+                  {
+                    src: 'resetCredentialOfferDeepLinkIntent',
+                  },
                 ],
               },
               inactive: {
@@ -303,7 +317,13 @@ export const appMachine = model.createMachine(
       resetAuthorizationRequest: assign({
         authorizationRequest: '',
       }),
-      forwardToSerices: pure((context, event) =>
+      setCredentialOffer: assign({
+        credentialOffer: (_, event) => event.data || '',
+      }),
+      resetCredentialOffer: assign({
+        credentialOffer: '',
+      }),
+      forwardToServices: pure((context, event) =>
         Object.values(context.serviceRefs).map(serviceRef =>
           send({...event, type: `APP_${event.type}`}, {to: serviceRef}),
         ),
@@ -470,6 +490,17 @@ export const appMachine = model.createMachine(
       resetOVPDeepLinkIntent: () => async () => {
         return await DeepLinkIntent.resetDeepLinkIntentData(DEEPLINK_FLOWS.OVP);
       },
+      getCredentialOfferDeepLinkIntent: () => async () => {
+        const data = await DeepLinkIntent.getDeepLinkIntentData(
+          DEEPLINK_FLOWS.CREDENTIAL_OFFER,
+        );
+        return data;
+      },
+      resetCredentialOfferDeepLinkIntent: () => async () => {
+        return await DeepLinkIntent.resetDeepLinkIntentData(
+          DEEPLINK_FLOWS.CREDENTIAL_OFFER,
+        );
+      },
       getAppInfo: () => async callback => {
         const appInfo = {
           deviceId: getDeviceId(),
@@ -600,6 +631,10 @@ export function selectIsLinkCode(state: State) {
 
 export function selectAuthorizationRequest(state: State) {
   return state.context.authorizationRequest;
+}
+
+export function selectCredentialOffer(state: State) {
+  return state.context.credentialOffer;
 }
 
 export function selectIsDeepLinkDetected(state: State) {

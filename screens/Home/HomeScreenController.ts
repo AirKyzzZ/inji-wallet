@@ -45,8 +45,6 @@ export function useHomeScreen(props: HomeRouteProps) {
     }
   }, [props.route.params, props.route.params?.activeTab]);
 
-  // The issuers machine only exists once Home has navigated to it, so a deep-linked
-  // offer opens that screen first and is delivered when the child comes up.
   useEffect(() => {
     if (!credentialOffer) return;
     if (!issuersService) {

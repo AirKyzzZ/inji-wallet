@@ -20,8 +20,6 @@ const decodeSegment = (
   }
 };
 
-/** OID4VCI signed metadata names its signer in the JWS `kid`, which is how a Verana
- *  demo issuer states the DID the registry knows it by. Unsigned metadata names nobody. */
 export const didFromSignedIssuerMetadata = (
   metadata?: string,
 ): string | undefined => {

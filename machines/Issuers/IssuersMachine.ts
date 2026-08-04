@@ -24,8 +24,6 @@ export const IssuersMachine = model.createMachine(
       context: model.initialContext,
       events: {} as EventFrom<typeof model>,
     },
-    // A deep-linked offer can land while the issuer list is still downloading, so it is
-    // handled from any state rather than only once the list is on screen.
     on: {
       CREDENTIAL_OFFER_VIA_DEEP_LINK: {
         actions: ['setLoadingReasonAsPreparingRequest', 'setQrData'],

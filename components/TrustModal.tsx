@@ -81,8 +81,6 @@ export const TrustModal = memo(
         visible={isVisible}
         animationType="fade">
         <SafeAreaView style={Theme.TrustIssuerScreenStyle.container}>
-          {/* The trust card is taller than the issuer summary alone, so the content
-              scrolls and the actions stay reachable at the bottom. */}
           <View
             style={{
               flexGrow: 1,

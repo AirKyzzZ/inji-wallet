@@ -40,11 +40,17 @@ import {APP_EVENTS} from '../../machines/app';
 import {useScanScreen} from './ScanScreenController';
 import {useOvpErrorModal} from '../../shared/hooks/useOvpErrorModal';
 import {TrustModalVerifier} from '../../components/TrustModalVerifier';
+import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
 
 export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
   const {t} = useTranslation('SendVPScreen');
   const controller = useSendVPScreen(props);
   const scanScreenController = useScanScreen();
+  const verana = useVeranaTrust({
+    clientId: controller.verifierClientId,
+    role: 'verifier',
+    title: controller.verifierNameInTrustModal,
+  });
 
   const [errorModal, resetErrorModal] = useOvpErrorModal({
     error: controller.error,
@@ -369,6 +375,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
           onConfirm={controller.VERIFIER_TRUST_CONSENT_GIVEN}
           onCancel={controller.CANCEL}
           flowType={'verifier'}
+          verana={verana}
         />
       }
       {Object.keys(vcsMatchingAuthRequest).length > 0 && (

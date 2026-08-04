@@ -34,6 +34,8 @@ import {AUTH_ROUTES} from '../../routes/routesConstants';
 import {TransactionCodeModal} from './TransactionCodeScreen';
 import {TrustModal} from '../../components/TrustModal';
 import {SendVPScreen} from '../Scan/SendVPScreen';
+import {resolveIssuerDid} from '../../shared/verana/issuerDid';
+import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
 
 import {AuthorizationType} from '../../shared/constants';
 import {useTimer} from '../../shared/hooks/UseTimer';
@@ -59,6 +61,23 @@ export const IssuersScreen: React.FC<
     useTimer({initialValue: 5});
 
   const isVerificationFailed = controller.verificationErrorMessage !== '';
+
+  const issuerHost = controller.selectedIssuer?.credential_issuer_host;
+  const [issuerDid, setIssuerDid] = useState<string>();
+  useEffect(() => {
+    let cancelled = false;
+    setIssuerDid(undefined);
+    resolveIssuerDid(issuerHost).then(did => !cancelled && setIssuerDid(did));
+    return () => {
+      cancelled = true;
+    };
+  }, [issuerHost]);
+
+  const verana = useVeranaTrust({
+    clientId: issuerDid,
+    role: 'issuer',
+    title: controller.issuerName,
+  });
 
   const translationKey = `errors.verificationFailed.${controller.verificationErrorMessage}`;
 
@@ -421,6 +440,7 @@ export const IssuersScreen: React.FC<
         onConfirm={controller.ON_CONSENT_GIVEN}
         consentStatus={controller.trustedIssuerConsentStatus}
         onCancel={controller.CANCEL}
+        verana={verana}
       />
     );
   }

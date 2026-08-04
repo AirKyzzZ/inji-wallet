@@ -145,6 +145,10 @@ export function selectVerifierLogoInTrustModal(state: State) {
   return state.context.authenticationResponse['client_metadata']?.['logo_uri'];
 }
 
+export function selectVerifierClientId(state: State) {
+  return state.context.authenticationResponse?.['client_id'];
+}
+
 export function selectIsAuthorization(state: State) {
   return state.context.flowType === VCShareFlowType.OPENID4VP_AUTHORIZATION;
 }

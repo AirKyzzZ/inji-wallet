@@ -531,25 +531,16 @@ export const appMachine = model.createMachine(
         );
         AppState.addEventListener('change', changeHandler);
 
-        let blurEventSubscription, focusEventSubscription;
-
-        if (isAndroid()) {
-          blurEventSubscription = AppState.addEventListener(
-            'blur',
-            blurHandler,
-          );
-          focusEventSubscription = AppState.addEventListener(
-            'focus',
-            focusHandler,
-          );
-        }
+        // Android also fires blur/focus when a *system* dialog takes focus, and the biometric
+        // prompt is one. Treating that as backgrounding sent the machine through `active` again,
+        // which re-reads the deep-link intent and restarts the whole flow — tearing down the
+        // screen while the keystore call that opened the prompt was still waiting on it. The
+        // 'change' listener above still covers real backgrounding.
+        void blurHandler;
+        void focusHandler;
 
         return () => {
           changeEventSubscription.remove();
-          if (isAndroid()) {
-            blurEventSubscription.remove();
-            focusEventSubscription.remove();
-          }
         };
       },
 

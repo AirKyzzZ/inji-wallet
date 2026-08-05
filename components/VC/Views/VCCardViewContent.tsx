@@ -134,9 +134,9 @@ export const VCCardViewContent: React.FC<VCItemContentProps> = ({
             )}
             <Text
               weight="semibold"
-              color={wellknownDisplayProperty.getTextColor(
-                Theme.Colors.plainText,
-              )}
+              // plainText (#F3E2FF) is meant for text over the purple card artwork; this list
+              // sits on a white panel, where it rendered every selectable field invisible.
+              color={Theme.Colors.Details}
               style={{marginLeft: 8}}>
               {formatKeyLabel(name)}
             </Text>

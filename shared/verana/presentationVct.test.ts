@@ -99,3 +99,32 @@ describe('vctFromPresentationDefinition', () => {
     ).toBeUndefined();
   });
 });
+
+describe('a filter that only survived as a pattern', () => {
+  const vct =
+    'https://demo-issuer-accredited.playground.testnet.verana.network/oid4vc/vct/demo-credential';
+  const escaped = vct.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+  const definitionWith = (filter: unknown) => ({
+    id: 'demo',
+    input_descriptors: [
+      {id: 'd', constraints: {fields: [{path: ['$.vct'], filter}]}},
+    ],
+  });
+
+  it('reads the escaped literal when const was dropped', () => {
+    expect(
+      vctFromPresentationDefinition(
+        definitionWith({type: 'string', pattern: escaped}),
+      ),
+    ).toBe(vct);
+  });
+
+  it('ignores a pattern that matches more than one value', () => {
+    expect(
+      vctFromPresentationDefinition(
+        definitionWith({type: 'string', pattern: '^https://.*/demo.*$'}),
+      ),
+    ).toBeUndefined();
+  });
+});

@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {veranaLog} from './constants';
 import {canonicalVeranaDid} from './canonicalDid';
 import {toVeranaServiceInfo, VeranaServiceInfo} from './serviceInfo';
 import {
@@ -14,6 +15,8 @@ import {
   isVeranaActionBlocked,
   isVeranaResolutionPending,
 } from './veranaVerdict';
+
+const debug = veranaLog('useVeranaTrust');
 
 type Options = {
   /** Raw OID4VP client_id, or a bare DID. `decentralized_identifier:` is stripped. */
@@ -114,6 +117,11 @@ export const useVeranaTrust = (options: Options): VeranaTrust => {
   });
   const trustStatus: VeranaTrustStatus =
     serviceInfo?.trustStatus ?? 'UNVERIFIED';
+
+  debug(
+    `gate did=${did} trust=${trustStatus} resolving=${isResolving} vct=${options.vct} ` +
+      `granted=${accreditation?.granted} checking=${isCheckingAccreditation}`,
+  );
 
   return {
     did,

@@ -11,23 +11,50 @@ const vctFromFilter = (filter: unknown): string | undefined => {
   if (typeof filter.const === 'string') {
     return filter.const;
   }
-  // A `pattern` is a regex, not a credential type, so it is never followed.
-  return Array.isArray(filter.enum) &&
+  if (
+    Array.isArray(filter.enum) &&
     filter.enum.length === 1 &&
     typeof filter.enum[0] === 'string'
-    ? filter.enum[0]
+  ) {
+    return filter.enum[0];
+  }
+  // A pattern is normally a regex and means nothing as a credential type, but a wallet that
+  // parses the request into its own model can drop `const` entirely (inji-openid4vp keeps only
+  // type and pattern), and then the escaped literal is all that survives. Follow it only when it
+  // matches exactly one string.
+  return typeof filter.pattern === 'string'
+    ? literalFromPattern(filter.pattern)
     : undefined;
+};
+
+/**
+ * The one string a fully-escaped pattern can match, or undefined when it can match more than one.
+ */
+const literalFromPattern = (pattern: string): string | undefined => {
+  const body = pattern.replace(/^\^/, '').replace(/\$$/, '');
+  // Every metacharacter must be escaped for the pattern to denote a single string. Drop the
+  // escaped pairs first: whatever metacharacter is left over was meant as a regex operator.
+  if (/[.*+?^${}()|[\]]/.test(body.replace(/\\./g, ''))) {
+    return undefined;
+  }
+  return body.replace(/\\(.)/g, '$1');
 };
 
 export const vctFromPresentationDefinition = (
   definition: unknown,
 ): string | undefined => {
-  if (!isRecord(definition) || !Array.isArray(definition.input_descriptors)) {
+  // A wallet that parses the request into its own model and hands it back may rename these
+  // fields to match that model, so both spellings of the descriptor list are accepted. Missing
+  // it entirely left the vct empty and the accreditation check with nothing to gate on.
+  const descriptors = isRecord(definition)
+    ? definition.input_descriptors ?? definition.inputDescriptors
+    : undefined;
+  if (!Array.isArray(descriptors)) {
     return undefined;
   }
 
   const vcts = new Set<string>();
-  for (const descriptor of definition.input_descriptors) {
+  for (const descriptor of descriptors) {
     if (!isRecord(descriptor) || !isRecord(descriptor.constraints)) {
       continue;
     }

@@ -317,7 +317,10 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
           styles={{marginTop: 12}}
           title={t('consentShare')}
           testID={'consent-share-button'}
-          disabled={Object.keys(controller.getSelectedVCs()).length === 0}
+          disabled={
+            verana.blocked ||
+            Object.keys(controller.getSelectedVCs()).length === 0
+          }
           onPress={() =>
             controller.checkIfAnyVCHasImage(controller.getSelectedVCs())
               ? controller.VERIFY_AND_ACCEPT_REQUEST(selectedDisclosuresByVc)
@@ -338,6 +341,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
             testID={'accept-request-button'}
             title={t('SendVcScreen:acceptRequest')}
             disabled={
+              verana.blocked ||
               Object.keys(controller.getSelectedVCs()).length === 0 ||
               controller.checkIfAnyVCHasImage(controller.getSelectedVCs())
             }
@@ -352,6 +356,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
             title={t('SendVcScreen:acceptRequestAndVerify')}
             styles={{marginTop: 12}}
             disabled={
+              verana.blocked ||
               Object.keys(controller.getSelectedVCs()).length === 0 ||
               !controller.checkIfAnyVCHasImage(controller.getSelectedVCs())
             }

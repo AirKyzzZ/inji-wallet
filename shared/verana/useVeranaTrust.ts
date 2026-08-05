@@ -38,7 +38,7 @@ export type VeranaTrust = {
 
 export const useVeranaTrust = (options: Options): VeranaTrust => {
   const clientDid = extractDidFromClientId(options.clientId);
-  const [did, setDid] = useState<string | undefined>(clientDid);
+  const [did, setDid] = useState<string | undefined>(undefined);
   const [serviceInfo, setServiceInfo] = useState<VeranaServiceInfo>();
   const [failed, setFailed] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
@@ -46,9 +46,13 @@ export const useVeranaTrust = (options: Options): VeranaTrust => {
     useState<VeranaAccreditationCheck>();
   const [isCheckingAccreditation, setIsChecking] = useState(false);
 
+  // Only the did:webvh form is registered. Querying with the did:web client_id first always
+  // 404s, and that failure settled the card on COULD NOT VERIFY - which never blocks - so an
+  // unaccredited counterparty could still be shared with. Ask nothing until the canonical DID
+  // is known; until then the card is RESOLVING, which is what an unasked question looks like.
   useEffect(() => {
     let cancelled = false;
-    setDid(clientDid);
+    setDid(undefined);
     canonicalVeranaDid(clientDid).then(
       resolved => !cancelled && setDid(resolved),
     );

@@ -47,7 +47,7 @@ export const TrustModalVerifier = ({
             </View>
           )}
           <ScrollView
-            style={{flex: 1, width: '100%'}}
+            style={{flexShrink: 1, width: '100%'}}
             contentContainerStyle={{alignItems: 'center', paddingBottom: 10}}
             showsVerticalScrollIndicator={true}>
             {verana?.did && (

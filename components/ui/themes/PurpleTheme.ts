@@ -440,7 +440,7 @@ export const PurpleTheme = {
       resizeMode: 'contain',
       aspectRatio: 1,
       height: 35,
-      marginRight: 10
+      marginRight: 10,
     },
     vcDetailsLogo: {
       height: 65,
@@ -2310,7 +2310,9 @@ export const PurpleTheme = {
       backgroundColor: '#fff',
       borderRadius: 20,
       width: '100%',
-      height: 470,
+      // Grows with the trust card instead of a fixed 470: at that height the verdict pill and
+      // everything under it sat below the fold on a tall screen.
+      maxHeight: 0.85 * SCREEN_HEIGHT,
       padding: 20,
       alignItems: 'center',
     },

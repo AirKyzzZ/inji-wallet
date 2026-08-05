@@ -28,6 +28,10 @@ export const veranaCardColors = {
 
 const styles = StyleSheet.create({
   card: {
+    // Without this the card sizes to its content wherever the parent centres its children, and
+    // the unbreakable DID makes that far wider than the screen: the row's flexShrink never
+    // engages and the card overflows both edges.
+    alignSelf: 'stretch',
     backgroundColor: veranaCardColors.card,
     borderColor: veranaCardColors.line,
     borderRadius: 14,

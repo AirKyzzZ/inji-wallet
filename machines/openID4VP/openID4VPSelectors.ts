@@ -7,6 +7,7 @@ import {
   VerifiableCredentialData,
 } from '../VerifiableCredential/VCMetaMachine/vc';
 import {VCShareFlowType} from '../../shared/Utils';
+import {vctFromPresentationDefinition} from '../../shared/verana/presentationVct';
 
 type State = StateFrom<typeof openID4VPMachine>;
 
@@ -147,6 +148,12 @@ export function selectVerifierLogoInTrustModal(state: State) {
 
 export function selectVerifierClientId(state: State) {
   return state.context.authenticationResponse?.['client_id'];
+}
+
+export function selectVerifierRequestedVct(state: State) {
+  return vctFromPresentationDefinition(
+    state.context.authenticationResponse?.['presentation_definition'],
+  );
 }
 
 export function selectIsAuthorization(state: State) {

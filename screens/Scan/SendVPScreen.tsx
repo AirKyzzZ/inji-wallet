@@ -49,6 +49,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
   const verana = useVeranaTrust({
     clientId: controller.verifierClientId,
     role: 'verifier',
+    vct: controller.verifierRequestedVct,
     title: controller.verifierNameInTrustModal,
   });
 

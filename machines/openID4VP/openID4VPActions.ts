@@ -366,8 +366,11 @@ function areVCFormatAndProofTypeMatchingRequest(
   requestFormat: Record<string, any> | undefined,
   vc: any,
 ): boolean {
+  // Presentation Exchange makes `format` optional, so its absence is "no restriction" rather than
+  // "matches nothing". Refusing here made every credential fail the match and the flow exit with
+  // NO_MATCHING_VCS before the request was ever shown.
   if (!requestFormat) {
-    return false;
+    return true;
   }
   const vcFormatType = vc.format;
   if (vcFormatType === VCFormat.ldp_vc) {
@@ -409,9 +412,11 @@ function areVCFormatAndProofTypeMatchingRequest(
       const sdJwt = vc.verifiableCredential?.credential;
       const alg = extractAlgFromSdJwt(sdJwt);
 
+      const sdJwtFormats: string[] = [VCFormat.vc_sd_jwt, VCFormat.dc_sd_jwt];
       return Object.entries(requestFormat).some(
         ([type, value]) =>
-          type === vcFormatType && value['sd-jwt_alg_values']?.includes(alg),
+          sdJwtFormats.includes(type) &&
+          value['sd-jwt_alg_values']?.includes(alg),
       );
     } catch (e) {
       console.error('Error processing SD-JWT alg match:', e);

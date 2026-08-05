@@ -1,4 +1,5 @@
 import {useEffect, useState} from 'react';
+import {canonicalVeranaDid} from './canonicalDid';
 import {toVeranaServiceInfo, VeranaServiceInfo} from './serviceInfo';
 import {
   checkVeranaAccreditation,
@@ -36,13 +37,25 @@ export type VeranaTrust = {
 };
 
 export const useVeranaTrust = (options: Options): VeranaTrust => {
-  const did = extractDidFromClientId(options.clientId);
+  const clientDid = extractDidFromClientId(options.clientId);
+  const [did, setDid] = useState<string | undefined>(clientDid);
   const [serviceInfo, setServiceInfo] = useState<VeranaServiceInfo>();
   const [failed, setFailed] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [accreditation, setAccreditation] =
     useState<VeranaAccreditationCheck>();
   const [isCheckingAccreditation, setIsChecking] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDid(clientDid);
+    canonicalVeranaDid(clientDid).then(
+      resolved => !cancelled && setDid(resolved),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [clientDid]);
 
   useEffect(() => {
     if (!did) return;

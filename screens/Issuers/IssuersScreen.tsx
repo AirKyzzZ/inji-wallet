@@ -34,7 +34,7 @@ import {AUTH_ROUTES} from '../../routes/routesConstants';
 import {TransactionCodeModal} from './TransactionCodeScreen';
 import {TrustModal} from '../../components/TrustModal';
 import {SendVPScreen} from '../Scan/SendVPScreen';
-import {resolveIssuerDid} from '../../shared/verana/issuerDid';
+import {resolveIssuerIdentity} from '../../shared/verana/issuerDid';
 import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
 
 import {AuthorizationType} from '../../shared/constants';
@@ -65,19 +65,25 @@ export const IssuersScreen: React.FC<
   const issuerHost =
     controller.credentialOfferCredentialIssuer ||
     controller.selectedIssuer?.credential_issuer_host;
-  const [issuerDid, setIssuerDid] = useState<string>();
+  const [issuerIdentity, setIssuerIdentity] = useState<{
+    did?: string;
+    vct?: string;
+  }>({});
   useEffect(() => {
     let cancelled = false;
-    setIssuerDid(undefined);
-    resolveIssuerDid(issuerHost).then(did => !cancelled && setIssuerDid(did));
+    setIssuerIdentity({});
+    resolveIssuerIdentity(issuerHost).then(
+      identity => !cancelled && setIssuerIdentity(identity),
+    );
     return () => {
       cancelled = true;
     };
   }, [issuerHost]);
 
   const verana = useVeranaTrust({
-    clientId: issuerDid,
+    clientId: issuerIdentity.did,
     role: 'issuer',
+    vct: issuerIdentity.vct,
     title: controller.issuerName,
   });
 

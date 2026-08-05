@@ -1,4 +1,8 @@
-import {didFromSignedIssuerMetadata, resolveIssuerDid} from './issuerDid';
+import {
+  didFromSignedIssuerMetadata,
+  resolveIssuerIdentity,
+  vctFromSignedIssuerMetadata,
+} from './issuerDid';
 
 const b64u = (value: object) =>
   Buffer.from(JSON.stringify(value))
@@ -7,8 +11,15 @@ const b64u = (value: object) =>
     .replace(/\//g, '_')
     .replace(/=+$/, '');
 
-const signedMetadata = (header: object) =>
-  `${b64u(header)}.${b64u({credential_issuer: 'https://issuer.example'})}.sig`;
+const VCT = 'https://issuer.example/oid4vc/vct/demo-credential';
+
+const signedMetadata = (header: object, payload?: object) =>
+  `${b64u(header)}.${b64u(
+    payload ?? {
+      credential_issuer: 'https://issuer.example',
+      credential_configurations_supported: {'demo-credential': {vct: VCT}},
+    },
+  )}.sig`;
 
 describe('didFromSignedIssuerMetadata', () => {
   const did = 'did:webvh:QmExample:issuer.example';
@@ -48,7 +59,39 @@ describe('didFromSignedIssuerMetadata', () => {
   });
 });
 
-describe('resolveIssuerDid', () => {
+describe('vctFromSignedIssuerMetadata', () => {
+  it('reads the vct of the only configuration', () => {
+    expect(
+      vctFromSignedIssuerMetadata(signedMetadata({alg: 'ES256'})),
+    ).toBe(VCT);
+  });
+
+  it('refuses to guess when several configurations are offered', () => {
+    expect(
+      vctFromSignedIssuerMetadata(
+        signedMetadata(
+          {alg: 'ES256'},
+          {
+            credential_configurations_supported: {
+              a: {vct: 'https://issuer.example/vct/a'},
+              b: {vct: 'https://issuer.example/vct/b'},
+            },
+          },
+        ),
+      ),
+    ).toBeUndefined();
+  });
+
+  it('ignores metadata with no configurations', () => {
+    expect(
+      vctFromSignedIssuerMetadata(
+        signedMetadata({alg: 'ES256'}, {credential_issuer: 'x'}),
+      ),
+    ).toBeUndefined();
+  });
+});
+
+describe('resolveIssuerIdentity', () => {
   const did = 'did:webvh:QmExample:issuer.example';
   const originalFetch = global.fetch;
 
@@ -63,7 +106,7 @@ describe('resolveIssuerDid', () => {
     });
     global.fetch = fetchMock as unknown as typeof fetch;
 
-    await expect(resolveIssuerDid('https://issuer.example')).resolves.toBe(did);
+    await expect(resolveIssuerIdentity('https://issuer.example')).resolves.toEqual({did, vct: VCT});
 
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe(
@@ -79,8 +122,8 @@ describe('resolveIssuerDid', () => {
     }) as unknown as typeof fetch;
 
     await expect(
-      resolveIssuerDid('https://issuer.example'),
-    ).resolves.toBeUndefined();
+      resolveIssuerIdentity('https://issuer.example'),
+    ).resolves.toEqual({});
   });
 
   it('returns undefined when the issuer is unreachable', async () => {
@@ -89,11 +132,11 @@ describe('resolveIssuerDid', () => {
       .mockRejectedValue(new Error('network')) as unknown as typeof fetch;
 
     await expect(
-      resolveIssuerDid('https://issuer.example'),
-    ).resolves.toBeUndefined();
+      resolveIssuerIdentity('https://issuer.example'),
+    ).resolves.toEqual({});
   });
 
   it('returns undefined without a host', async () => {
-    await expect(resolveIssuerDid(undefined)).resolves.toBeUndefined();
+    await expect(resolveIssuerIdentity(undefined)).resolves.toEqual({});
   });
 });

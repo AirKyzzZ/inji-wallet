@@ -32,10 +32,36 @@ export const didFromSignedIssuerMetadata = (
   return kid.split('#')[0];
 };
 
-export const resolveIssuerDid = async (
+export const vctFromSignedIssuerMetadata = (
+  metadata?: string,
+): string | undefined => {
+  const parts = metadata?.trim().split('.');
+  if (!parts || parts.length !== 3) return undefined;
+
+  const configurations = decodeSegment(parts[1])
+    ?.credential_configurations_supported;
+  if (typeof configurations !== 'object' || configurations === null) {
+    return undefined;
+  }
+  const vcts = Object.values(configurations as Record<string, unknown>)
+    .map(configuration =>
+      typeof configuration === 'object' && configuration !== null
+        ? (configuration as Record<string, unknown>).vct
+        : undefined,
+    )
+    .filter((vct): vct is string => typeof vct === 'string');
+
+  // Only an unambiguous answer is useful: with several configurations the offer decides
+  // which one, and guessing here would gate the wrong permission.
+  return vcts.length === 1 ? vcts[0] : undefined;
+};
+
+export type IssuerIdentity = {did?: string; vct?: string};
+
+export const resolveIssuerIdentity = async (
   credentialIssuerHost?: string,
-): Promise<string | undefined> => {
-  if (!credentialIssuerHost) return undefined;
+): Promise<IssuerIdentity> => {
+  if (!credentialIssuerHost) return {};
 
   const url = `${credentialIssuerHost.replace(
     /\/+$/,
@@ -48,11 +74,15 @@ export const resolveIssuerDid = async (
       headers: {Accept: 'application/jwt'},
       signal: controller.signal,
     });
-    if (!response.ok) return undefined;
-    return didFromSignedIssuerMetadata(await response.text());
+    if (!response.ok) return {};
+    const metadata = await response.text();
+    return {
+      did: didFromSignedIssuerMetadata(metadata),
+      vct: vctFromSignedIssuerMetadata(metadata),
+    };
   } catch (error) {
     debug(`could not read signed metadata from ${url}: ${error}`);
-    return undefined;
+    return {};
   } finally {
     clearTimeout(timeout);
   }

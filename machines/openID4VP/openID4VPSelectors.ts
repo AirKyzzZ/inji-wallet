@@ -151,8 +151,14 @@ export function selectVerifierClientId(state: State) {
 }
 
 export function selectVerifierRequestedVct(state: State) {
+  // inji-openid4vp hands back the parsed AuthorizationRequest, which names this field
+  // `presentationDefinition`, while the wire format spells it with an underscore. Reading only
+  // the wire spelling left the vct empty, so Q3 had nothing to look up and answered "could not
+  // determine" - which never blocks - letting an unaccredited verifier through.
+  const response = state.context.authenticationResponse;
   return vctFromPresentationDefinition(
-    state.context.authenticationResponse?.['presentation_definition'],
+    response?.['presentationDefinition'] ??
+      response?.['presentation_definition'],
   );
 }
 

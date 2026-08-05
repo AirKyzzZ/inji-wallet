@@ -5,6 +5,7 @@ import com.reactnativesecurekeystore.KeyGeneratorImpl;
 import com.reactnativesecurekeystore.CipherBoxImpl;
 import com.reactnativesecurekeystore.DeviceCapability;
 import com.reactnativesecurekeystore.PreferencesImpl;
+import android.app.Activity;
 import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
@@ -89,12 +90,25 @@ public class RNSecureKeystoreModule extends ReactContextBaseJavaModule {
         return Unit.INSTANCE;
       }
     };
+    if (lostActivity(promise)) return;
     keystore.encryptData(
         alias,
         data,
         successLambda,
         failureLambda,
         getCurrentActivity());
+  }
+
+
+  /**
+   * These keystore calls take a non-null Activity to host the biometric prompt. Android tears the
+   * activity down when the app leaves the foreground, which mid-prompt left getCurrentActivity()
+   * null and killed the process on the native modules thread instead of failing the call.
+   */
+  private boolean lostActivity(Promise promise) {
+    if (getCurrentActivity() != null) return false;
+    promise.reject("NO_ACTIVITY", "the app left the foreground before the keystore prompt could run");
+    return true;
   }
 
   @ReactMethod
@@ -115,6 +129,7 @@ public class RNSecureKeystoreModule extends ReactContextBaseJavaModule {
       }
     };
 
+    if (lostActivity(promise)) return;
     keystore.decryptData(alias, encryptedText, successLambda, failureLambda, getCurrentActivity());
   }
 
@@ -171,6 +186,7 @@ public class RNSecureKeystoreModule extends ReactContextBaseJavaModule {
       }
     };
 
+    if (lostActivity(promise)) return;
     keystore.sign(
         algorithm,
         alias,
@@ -233,6 +249,7 @@ public class RNSecureKeystoreModule extends ReactContextBaseJavaModule {
 
   private void retrieveDataAndResolve(String key, Promise promise) {
     try {
+      if (lostActivity(promise)) return;
       List<String> dataList = keystore.retrieveGenericKey(key,getCurrentActivity());
       WritableArray writableArray = Arguments.createArray();
       for (String data : dataList) {

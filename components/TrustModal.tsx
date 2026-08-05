@@ -101,7 +101,7 @@ export const TrustModal = memo(
               />
             ) : (
               <View style={Theme.TrustIssuerScreenStyle.coverCard}>
-                <HeaderSection t={t} />
+                <HeaderSection t={t} compact={!!verana?.did} />
                 {verana?.did && (
                   <VeranaTrustCard
                     did={verana.did}
@@ -149,11 +149,14 @@ export const TrustModal = memo(
 
 TrustModal.displayName = 'TrustModal';
 
-const HeaderSection = ({t}: {t: any}) => (
+const HeaderSection = ({t, compact}: {t: any; compact?: boolean}) => (
   <View style={Theme.TrustIssuerScreenStyle.header}>
     <Image
       source={require('../assets/TrustLogo.jpg')}
-      style={Theme.TrustIssuerScreenStyle.trustIcon}
+      style={[
+        Theme.TrustIssuerScreenStyle.trustIcon,
+        compact && Theme.TrustIssuerScreenStyle.trustIconCompact,
+      ]}
     />
     <Text style={Theme.TrustIssuerScreenStyle.title}>{t('title')}</Text>
     <Text style={Theme.TrustIssuerScreenStyle.subtitle}>{t('subTitle')}</Text>

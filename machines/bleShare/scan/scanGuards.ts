@@ -24,8 +24,12 @@ export const ScanGuards = () => {
       }
     },
 
+    // OpenID4VP leaves the authority undefined, so a spec-shaped request is
+    // 'openid4vp://?client_id=...&request_uri=...' with no 'authorize' host. Match on the
+    // scheme alone, as MainActivity and the manifest filter already do for the deep link,
+    // or the same request a deep link accepts is rejected when it arrives by scan.
     isOnlineSharing: (_, event) => {
-      return event.params.startsWith('openid4vp://authorize');
+      return event.params.toLowerCase().startsWith('openid4vp://');
     },
 
     uptoAndroid11: () => isAndroid() && androidVersion < 31,

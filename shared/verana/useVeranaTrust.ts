@@ -15,6 +15,7 @@ import {
   isVeranaActionBlocked,
   isVeranaResolutionPending,
 } from './veranaVerdict';
+import {credentialNameFromVct} from './vctName';
 
 const debug = veranaLog('useVeranaTrust');
 
@@ -35,6 +36,7 @@ export type VeranaTrust = {
   isResolving: boolean;
   accreditation?: VeranaAccreditationCheck;
   isCheckingAccreditation: boolean;
+  credentialName?: string;
   /** Accept/share must be disabled while this is true. */
   blocked: boolean;
 };
@@ -48,6 +50,18 @@ export const useVeranaTrust = (options: Options): VeranaTrust => {
   const [accreditation, setAccreditation] =
     useState<VeranaAccreditationCheck>();
   const [isCheckingAccreditation, setIsChecking] = useState(false);
+  const [credentialName, setCredentialName] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+    setCredentialName(undefined);
+    credentialNameFromVct(options.vct).then(
+      name => !cancelled && setCredentialName(name),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [options.vct]);
 
   // Only the did:webvh form is registered. Querying with the did:web client_id first always
   // 404s, and that failure settled the card on COULD NOT VERIFY - which never blocks - so an
@@ -130,6 +144,7 @@ export const useVeranaTrust = (options: Options): VeranaTrust => {
     isResolving,
     accreditation,
     isCheckingAccreditation,
+    credentialName,
     blocked: isVeranaActionBlocked({
       trustStatus,
       isResolving,

@@ -5,6 +5,7 @@ import {Theme} from './ui/styleUtils';
 import {useTranslation} from 'react-i18next';
 import type {VeranaTrust} from '../shared/verana/useVeranaTrust';
 import VeranaTrustCard from './VeranaTrustCard/VeranaTrustCard';
+import {VERANA_STRINGS} from './VeranaTrustCard/strings';
 
 export const TrustModalVerifier = ({
   isVisible,
@@ -58,10 +59,13 @@ export const TrustModalVerifier = ({
                 isFetchingInfo={verana.isResolving}
                 isResolving={verana.isResolving}
                 ask={
-                  credentialName
+                  verana.accreditation || verana.isCheckingAccreditation
                     ? {
                         kind: flowType === 'issuer' ? 'offer' : 'request',
-                        credential: credentialName,
+                        credential:
+                          credentialName ??
+                          verana.credentialName ??
+                          VERANA_STRINGS.thisCredential,
                         party: verana.serviceInfo?.name || name,
                         accreditation: verana.accreditation,
                         isChecking: verana.isCheckingAccreditation,

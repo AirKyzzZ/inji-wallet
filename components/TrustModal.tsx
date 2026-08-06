@@ -6,6 +6,7 @@ import {Button} from './ui';
 import {Theme} from './ui/styleUtils';
 import type {VeranaTrust} from '../shared/verana/useVeranaTrust';
 import VeranaTrustCard from './VeranaTrustCard/VeranaTrustCard';
+import {VERANA_STRINGS} from './VeranaTrustCard/strings';
 
 type ConsentStatus = 'idle' | 'loading' | 'success';
 
@@ -110,10 +111,13 @@ export const TrustModal = memo(
                     isFetchingInfo={verana.isResolving}
                     isResolving={verana.isResolving}
                     ask={
-                      credentialName
+                      verana.accreditation || verana.isCheckingAccreditation
                         ? {
                             kind: 'offer',
-                            credential: credentialName,
+                            credential:
+                              credentialName ??
+                              verana.credentialName ??
+                              VERANA_STRINGS.thisCredential,
                             party: verana.serviceInfo?.name || name,
                             accreditation: verana.accreditation,
                             isChecking: verana.isCheckingAccreditation,

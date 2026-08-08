@@ -1,6 +1,7 @@
 import {
   checkVeranaAccreditation,
   isPermissionActive,
+  resetPermissionCache,
   resolveAccreditation,
 } from './veranaPermissions';
 import type {VeranaPermission} from './veranaPermissions';
@@ -24,6 +25,7 @@ const jsonResponse = (body: unknown) => ({ok: true, json: async () => body});
 describe('veranaPermissions', () => {
   beforeEach(() => {
     mockFetch.mockReset();
+    resetPermissionCache();
     global.fetch = mockFetch as typeof fetch;
   });
 

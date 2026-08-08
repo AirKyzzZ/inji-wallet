@@ -2,7 +2,10 @@ import {VERANA_API_URL, veranaLog} from './constants';
 
 const debug = veranaLog('veranaPermissions');
 
-const PERMISSION_TIMEOUT_MS = 10000;
+// The list endpoint takes no filter, so this is the whole registry in one response: ~780 KB and
+// growing, which already overran a 10s budget on device and aborted mid-download.
+const PERMISSION_TIMEOUT_MS = 45000;
+const PERMISSION_CACHE_TTL_MS = 120000;
 
 // The VPR list endpoints ignore `pagination.*` entirely and default to 64 records;
 // `response_max_size` is the parameter that actually widens the response. Reading the default
@@ -323,10 +326,24 @@ export const findSchemaId = (
   return undefined;
 };
 
+let permissionCache:
+  | {at: number; permissions: Array<VeranaPermission>}
+  | undefined;
+
+export const resetPermissionCache = () => {
+  permissionCache = undefined;
+};
+
 export const fetchPermissions = async (options?: {
   limit?: number;
 }): Promise<Array<VeranaPermission> | undefined> => {
   const limit = options?.limit ?? RESPONSE_MAX_SIZE;
+  if (
+    permissionCache &&
+    Date.now() - permissionCache.at < PERMISSION_CACHE_TTL_MS
+  ) {
+    return permissionCache.permissions;
+  }
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), PERMISSION_TIMEOUT_MS);
   try {
@@ -348,12 +365,14 @@ export const fetchPermissions = async (options?: {
       return undefined;
     }
 
-    return body.permissions
+    const permissions = body.permissions
       .map(parsePermission)
       .filter(
         (permission): permission is VeranaPermission =>
           permission !== undefined,
       );
+    permissionCache = {at: Date.now(), permissions};
+    return permissions;
   } catch (error) {
     debug(`permission list fetch failed: ${error}`);
     return undefined;

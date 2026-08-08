@@ -272,6 +272,7 @@ const ActionsSection = ({
       disabled={blocked}
       title={isLoading ? t('inProgress') : t('confirm')}
       type="gradient"
+      titleStyle={{flex: 1, textAlign: 'center'}}
       onPress={
         isLoading || blocked
           ? () => {

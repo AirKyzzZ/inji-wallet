@@ -104,6 +104,7 @@ export const TrustModalVerifier = ({
               }}
               type="gradient"
               title={t(flowType == 'issuer' ? 'confirm' : 'verifierConfirm')}
+              titleStyle={{flex: 1, textAlign: 'center'}}
               disabled={verana?.blocked}
               onPress={onConfirm}
             />

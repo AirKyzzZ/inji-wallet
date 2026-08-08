@@ -37,7 +37,7 @@ export const Button: React.FC<ButtonProps> = props => {
   const containerStyle: StyleProp<ViewStyle> = [
     !(type === 'gradient')
       ? Theme.ButtonStyles.container
-      : {flexDirection: 'row'},
+      : {flexDirection: 'row', justifyContent: 'center', alignItems: 'center'},
     props.disabled && props.type !== 'outline' && props.type !== 'clear'
       ? Theme.ButtonStyles.disabled
       : null,

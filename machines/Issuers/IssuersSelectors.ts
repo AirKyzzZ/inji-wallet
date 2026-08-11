@@ -48,6 +48,10 @@ export function selectIssuerName(state: State) {
   return state.context.issuerName;
 }
 
+export function selectCredentialOfferCredentialIssuer(state: State) {
+  return state.context.credentialOfferCredentialIssuer;
+}
+
 export function selectTxCodeDisplayDetails(state: State) {
   const context = state.context;
   return {

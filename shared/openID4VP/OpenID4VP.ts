@@ -100,7 +100,15 @@ class OpenID4VP {
     const selectedVcsData: SelectedCredentialsForVPSharing = {};
     Object.entries(selectedVCs).forEach(([inputDescriptorId, vcsArray]) => {
       vcsArray.forEach(vcData => {
-        const credentialFormat = vcData.vcMetadata.format;
+        // Presentation Exchange predates dc+sd-jwt, so a submission naming it is rejected whole
+        // by PEX ("each format should be one of the known format") even though the credential is
+        // exactly what was asked for. The two are one media type family, so answer in the name
+        // the rail understands.
+        const storedFormat = vcData.vcMetadata.format;
+        const credentialFormat =
+          storedFormat === VCFormat.dc_sd_jwt
+            ? VCFormat.vc_sd_jwt
+            : storedFormat;
         const credential = this.extractCredential(
           vcData,
           credentialFormat,
@@ -160,6 +168,15 @@ class OpenID4VP {
         disclosures.forEach(d => disclosureSet.add(d));
       }
     });
+
+    // An empty selection used to send the bare JWT, which discloses nothing and cannot satisfy
+    // any input descriptor: the verifier asks for claims and receives none. Fall back to every
+    // disclosure the credential carries so the presentation answers what was requested.
+    if (disclosureSet.size === 0) {
+      Object.values(pathToDisclosures).forEach(disclosures =>
+        disclosures.forEach(d => disclosureSet.add(d)),
+      );
+    }
 
     const finalSdJwt =
       disclosureSet.size > 0

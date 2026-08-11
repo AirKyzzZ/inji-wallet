@@ -32,9 +32,11 @@ import {
   selectshowTrustConsentModal,
   selectVCsMatchingAuthRequest,
   selectVerifiableCredentialsData,
+  selectVerifierClientId,
   selectVerifierLogoInTrustModal,
   selectVerifierNameInTrustModal,
   selectVerifierNameInVPSharing,
+  selectVerifierRequestedVct,
 } from '../../machines/openID4VP/openID4VPSelectors';
 import {OpenID4VPEvents} from '../../machines/openID4VP/openID4VPMachine';
 import {selectMyVcs} from '../../machines/QrLogin/QrLoginSelectors';
@@ -244,6 +246,11 @@ export function useSendVPScreen(props) {
     verifierLogoInTrustModal: useSelector(
       openID4VPService,
       selectVerifierLogoInTrustModal,
+    ),
+    verifierClientId: useSelector(openID4VPService, selectVerifierClientId),
+    verifierRequestedVct: useSelector(
+      openID4VPService,
+      selectVerifierRequestedVct,
     ),
     showConfirmationPopup,
     isSelectingVCs,

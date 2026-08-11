@@ -8,6 +8,7 @@ import {
   selectIssuers,
   selectIsError,
   selectLoadingReason,
+  selectCredentialOfferCredentialIssuer,
   selectSelectedIssuer,
   selectSelectingCredentialType,
   selectStoring,
@@ -62,6 +63,10 @@ export function useIssuerScreenController({route, navigation}) {
     txCodeDisplayDetails: useSelector(service, selectTxCodeDisplayDetails),
     authEndpoint: useSelector(service, selectAuthEndPoint),
     selectedIssuer: useSelector(service, selectSelectedIssuer),
+    credentialOfferCredentialIssuer: useSelector(
+      service,
+      selectCredentialOfferCredentialIssuer,
+    ),
     selectedCredentialType: useSelector(service, selectSelectedCredentialType),
     errorMessageType: useSelector(service, selectErrorMessageType),
     isDownloadingCredentials: useSelector(service, selectIsDownloadCredentials),

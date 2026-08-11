@@ -81,6 +81,19 @@
                         android:host="authorize" />
             </intent-filter>
 
+            <!-- Android merges every <data> attribute inside one filter, so a host declared
+                 for one scheme would be required for all of them. OpenID4VP and OpenID4VCI
+                 both leave the host undefined and issuers and verifiers commonly omit it,
+                 so these schemes need a filter of their own. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="openid4vp" />
+                <data android:scheme="openid-credential-offer" />
+            </intent-filter>
+
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />

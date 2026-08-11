@@ -3,6 +3,9 @@ import {Modal, View, Text, Image, ScrollView} from 'react-native';
 import {Button} from './ui';
 import {Theme} from './ui/styleUtils';
 import {useTranslation} from 'react-i18next';
+import type {VeranaTrust} from '../shared/verana/useVeranaTrust';
+import VeranaTrustCard from './VeranaTrustCard/VeranaTrustCard';
+import {VERANA_STRINGS} from './VeranaTrustCard/strings';
 
 export const TrustModalVerifier = ({
   isVisible,
@@ -11,6 +14,8 @@ export const TrustModalVerifier = ({
   onConfirm,
   onCancel,
   flowType = 'issuer',
+  verana,
+  credentialName,
 }: {
   isVisible: boolean;
   logo: any;
@@ -18,6 +23,9 @@ export const TrustModalVerifier = ({
   onConfirm: () => void;
   onCancel: () => void;
   flowType?: 'issuer' | 'verifier';
+  /** Absent when the counterparty does not identify by DID, in which case no card is drawn. */
+  verana?: VeranaTrust;
+  credentialName?: string;
 }) => {
   const {t} = useTranslation('trustScreen');
   return (
@@ -40,9 +48,32 @@ export const TrustModalVerifier = ({
             </View>
           )}
           <ScrollView
-            style={{flex: 1, width: '100%'}}
+            style={{flexShrink: 1, width: '100%'}}
             contentContainerStyle={{alignItems: 'center', paddingBottom: 10}}
             showsVerticalScrollIndicator={true}>
+            {verana?.did && (
+              <VeranaTrustCard
+                did={verana.did}
+                serviceInfo={verana.serviceInfo}
+                trustStatus={verana.trustStatus}
+                isFetchingInfo={verana.isResolving}
+                isResolving={verana.isResolving}
+                ask={
+                  verana.accreditation || verana.isCheckingAccreditation
+                    ? {
+                        kind: flowType === 'issuer' ? 'offer' : 'request',
+                        credential:
+                          credentialName ??
+                          verana.credentialName ??
+                          VERANA_STRINGS.thisCredential,
+                        party: verana.serviceInfo?.name || name,
+                        accreditation: verana.accreditation,
+                        isChecking: verana.isCheckingAccreditation,
+                      }
+                    : undefined
+                }
+              />
+            )}
             <Text style={Theme.TrustVerifierScreenStyle.description}>
               {t(flowType === 'issuer' ? 'description' : 'verifierDescription')}
             </Text>
@@ -73,6 +104,8 @@ export const TrustModalVerifier = ({
               }}
               type="gradient"
               title={t(flowType == 'issuer' ? 'confirm' : 'verifierConfirm')}
+              titleStyle={{flex: 1, textAlign: 'center'}}
+              disabled={verana?.blocked}
               onPress={onConfirm}
             />
             <Button

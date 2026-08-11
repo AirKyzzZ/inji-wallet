@@ -24,6 +24,12 @@ export const IssuersMachine = model.createMachine(
       context: model.initialContext,
       events: {} as EventFrom<typeof model>,
     },
+    on: {
+      CREDENTIAL_OFFER_VIA_DEEP_LINK: {
+        actions: ['setLoadingReasonAsPreparingRequest', 'setQrData'],
+        target: '#issuersMachine.credentialDownloadFromOffer',
+      },
+    },
     states: {
       displayIssuers: {
         description: 'displays the issuers downloaded from the server',

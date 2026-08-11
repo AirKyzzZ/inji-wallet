@@ -40,11 +40,18 @@ import {APP_EVENTS} from '../../machines/app';
 import {useScanScreen} from './ScanScreenController';
 import {useOvpErrorModal} from '../../shared/hooks/useOvpErrorModal';
 import {TrustModalVerifier} from '../../components/TrustModalVerifier';
+import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
 
 export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
   const {t} = useTranslation('SendVPScreen');
   const controller = useSendVPScreen(props);
   const scanScreenController = useScanScreen();
+  const verana = useVeranaTrust({
+    clientId: controller.verifierClientId,
+    role: 'verifier',
+    vct: controller.verifierRequestedVct,
+    title: controller.verifierNameInTrustModal,
+  });
 
   const [errorModal, resetErrorModal] = useOvpErrorModal({
     error: controller.error,
@@ -310,7 +317,10 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
           styles={{marginTop: 12}}
           title={t('consentShare')}
           testID={'consent-share-button'}
-          disabled={Object.keys(controller.getSelectedVCs()).length === 0}
+          disabled={
+            verana.blocked ||
+            Object.keys(controller.getSelectedVCs()).length === 0
+          }
           onPress={() =>
             controller.checkIfAnyVCHasImage(controller.getSelectedVCs())
               ? controller.VERIFY_AND_ACCEPT_REQUEST(selectedDisclosuresByVc)
@@ -331,6 +341,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
             testID={'accept-request-button'}
             title={t('SendVcScreen:acceptRequest')}
             disabled={
+              verana.blocked ||
               Object.keys(controller.getSelectedVCs()).length === 0 ||
               controller.checkIfAnyVCHasImage(controller.getSelectedVCs())
             }
@@ -345,6 +356,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
             title={t('SendVcScreen:acceptRequestAndVerify')}
             styles={{marginTop: 12}}
             disabled={
+              verana.blocked ||
               Object.keys(controller.getSelectedVCs()).length === 0 ||
               !controller.checkIfAnyVCHasImage(controller.getSelectedVCs())
             }
@@ -369,6 +381,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
           onConfirm={controller.VERIFIER_TRUST_CONSENT_GIVEN}
           onCancel={controller.CANCEL}
           flowType={'verifier'}
+          verana={verana}
         />
       }
       {Object.keys(vcsMatchingAuthRequest).length > 0 && (

@@ -7,6 +7,7 @@ import {
   VerifiableCredentialData,
 } from '../VerifiableCredential/VCMetaMachine/vc';
 import {VCShareFlowType} from '../../shared/Utils';
+import {vctFromPresentationDefinition} from '../../shared/verana/presentationVct';
 
 type State = StateFrom<typeof openID4VPMachine>;
 
@@ -143,6 +144,22 @@ export function selectVerifierNameInTrustModal(state: State) {
 
 export function selectVerifierLogoInTrustModal(state: State) {
   return state.context.authenticationResponse['client_metadata']?.['logo_uri'];
+}
+
+export function selectVerifierClientId(state: State) {
+  return state.context.authenticationResponse?.['client_id'];
+}
+
+export function selectVerifierRequestedVct(state: State) {
+  // inji-openid4vp hands back the parsed AuthorizationRequest, which names this field
+  // `presentationDefinition`, while the wire format spells it with an underscore. Reading only
+  // the wire spelling left the vct empty, so Q3 had nothing to look up and answered "could not
+  // determine" - which never blocks - letting an unaccredited verifier through.
+  const response = state.context.authenticationResponse;
+  return vctFromPresentationDefinition(
+    response?.['presentationDefinition'] ??
+      response?.['presentation_definition'],
+  );
 }
 
 export function selectIsAuthorization(state: State) {

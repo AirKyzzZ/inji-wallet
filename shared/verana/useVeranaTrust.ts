@@ -1,0 +1,155 @@
+import {useEffect, useState} from 'react';
+import {veranaLog} from './constants';
+import {canonicalVeranaDid} from './canonicalDid';
+import {toVeranaServiceInfo, VeranaServiceInfo} from './serviceInfo';
+import {
+  checkVeranaAccreditation,
+  VeranaAccreditationCheck,
+} from './veranaPermissions';
+import {
+  extractDidFromClientId,
+  fetchVeranaTrustDetails,
+  VeranaTrustStatus,
+} from './veranaTrustService';
+import {
+  isVeranaActionBlocked,
+  isVeranaResolutionPending,
+} from './veranaVerdict';
+import {credentialNameFromVct} from './vctName';
+
+const debug = veranaLog('useVeranaTrust');
+
+type Options = {
+  /** Raw OID4VP client_id, or a bare DID. `decentralized_identifier:` is stripped. */
+  clientId?: string;
+  role: 'issuer' | 'verifier';
+  /** Schema the counterparty is accredited against, for the Q2/Q3 check. */
+  schemaId?: string;
+  vct?: string;
+  title?: string;
+};
+
+export type VeranaTrust = {
+  did?: string;
+  serviceInfo?: VeranaServiceInfo;
+  trustStatus: VeranaTrustStatus;
+  isResolving: boolean;
+  accreditation?: VeranaAccreditationCheck;
+  isCheckingAccreditation: boolean;
+  credentialName?: string;
+  /** Accept/share must be disabled while this is true. */
+  blocked: boolean;
+};
+
+export const useVeranaTrust = (options: Options): VeranaTrust => {
+  const clientDid = extractDidFromClientId(options.clientId);
+  const [did, setDid] = useState<string | undefined>(undefined);
+  const [serviceInfo, setServiceInfo] = useState<VeranaServiceInfo>();
+  const [failed, setFailed] = useState(false);
+  const [isFetching, setIsFetching] = useState(false);
+  const [accreditation, setAccreditation] =
+    useState<VeranaAccreditationCheck>();
+  const [isCheckingAccreditation, setIsChecking] = useState(false);
+  const [credentialName, setCredentialName] = useState<string>();
+
+  useEffect(() => {
+    let cancelled = false;
+    setCredentialName(undefined);
+    credentialNameFromVct(options.vct).then(
+      name => !cancelled && setCredentialName(name),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [options.vct]);
+
+  // Only the did:webvh form is registered. Querying with the did:web client_id first always
+  // 404s, and that failure settled the card on COULD NOT VERIFY - which never blocks - so an
+  // unaccredited counterparty could still be shared with. Ask nothing until the canonical DID
+  // is known; until then the card is RESOLVING, which is what an unasked question looks like.
+  useEffect(() => {
+    let cancelled = false;
+    setDid(undefined);
+    canonicalVeranaDid(clientDid).then(
+      resolved => !cancelled && setDid(resolved),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [clientDid]);
+
+  useEffect(() => {
+    if (!did) return;
+    let cancelled = false;
+    setFailed(false);
+    setIsFetching(true);
+    fetchVeranaTrustDetails(did)
+      .then(details => {
+        if (cancelled) return;
+        const info = toVeranaServiceInfo(details);
+        if (info) setServiceInfo(info);
+        else setFailed(true);
+      })
+      .catch(() => !cancelled && setFailed(true))
+      .finally(() => !cancelled && setIsFetching(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [did]);
+
+  useEffect(() => {
+    if (!did) return;
+    let cancelled = false;
+    setIsChecking(true);
+    checkVeranaAccreditation({
+      did,
+      role: options.role,
+      schemaId: options.schemaId,
+      vct: options.vct,
+      title: options.title,
+    })
+      .then(result => !cancelled && setAccreditation(result))
+      .catch(
+        () =>
+          !cancelled &&
+          setAccreditation({
+            granted: undefined,
+            reason: 'This could not be checked against the registry.',
+          }),
+      )
+      .finally(() => !cancelled && setIsChecking(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [did, options.role, options.schemaId, options.vct, options.title]);
+
+  const isResolving = isVeranaResolutionPending({
+    did,
+    trustStatus: serviceInfo?.trustStatus,
+    isFetching,
+    failed,
+  });
+  const trustStatus: VeranaTrustStatus =
+    serviceInfo?.trustStatus ?? 'UNVERIFIED';
+
+  debug(
+    `gate did=${did} trust=${trustStatus} resolving=${isResolving} vct=${options.vct} ` +
+      `granted=${accreditation?.granted} checking=${isCheckingAccreditation}`,
+  );
+
+  return {
+    did,
+    serviceInfo,
+    trustStatus,
+    isResolving,
+    accreditation,
+    isCheckingAccreditation,
+    credentialName,
+    blocked: isVeranaActionBlocked({
+      trustStatus,
+      isResolving,
+      permissionGranted: accreditation?.granted,
+      isCheckingPermission: isCheckingAccreditation,
+    }),
+  };
+};

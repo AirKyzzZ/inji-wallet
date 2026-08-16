@@ -381,6 +381,53 @@ export const fetchPermissions = async (options?: {
   }
 };
 
+const vprTypeCode = (role: 'ISSUER' | 'VERIFIER'): number =>
+  role === 'ISSUER' ? 1 : 2;
+
+export const fetchPermissionsForDid = async (options: {
+  did: string;
+  role: 'ISSUER' | 'VERIFIER';
+  schemaId: string;
+}): Promise<Array<VeranaPermission> | undefined> => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), PERMISSION_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `${VERANA_API_URL}/verana/perm/v1/find_with_did?did=${encodeURIComponent(
+        options.did,
+      )}&type=${vprTypeCode(options.role)}&schema_id=${encodeURIComponent(
+        options.schemaId,
+      )}`,
+      {signal: controller.signal},
+    );
+    // 404 means the schema is not on chain, a determinate zero rather than a failure, so it denies.
+    if (response.status === 404) {
+      return [];
+    }
+    if (!response.ok) {
+      debug(`permission lookup returned ${response.status}`);
+      return undefined;
+    }
+
+    const body: unknown = await response.json();
+    if (!isRecord(body) || !Array.isArray(body.permissions)) {
+      return undefined;
+    }
+
+    return body.permissions
+      .map(parsePermission)
+      .filter(
+        (permission): permission is VeranaPermission =>
+          permission !== undefined,
+      );
+  } catch (error) {
+    debug(`permission lookup failed: ${error}`);
+    return undefined;
+  } finally {
+    clearTimeout(timeout);
+  }
+};
+
 type AccreditationOutcome =
   | {status: 'unreachable'}
   | {status: 'unresolved-schema'}
@@ -408,7 +455,11 @@ const resolveAccreditationOutcome = async (options: {
     return {status: 'unresolved-schema'};
   }
 
-  const permissions = await fetchPermissions();
+  const permissions = await fetchPermissionsForDid({
+    did: options.did,
+    role: options.role,
+    schemaId,
+  });
   if (!permissions) {
     return {status: 'unreachable'};
   }

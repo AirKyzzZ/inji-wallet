@@ -83,7 +83,10 @@ export const IssuersScreen: React.FC<
   const verana = useVeranaTrust({
     clientId: issuerIdentity.did,
     role: 'issuer',
-    vct: issuerIdentity.vct,
+    // The offer already names its configuration, so prefer that vct: an issuer
+    // publishing several configurations leaves issuerIdentity.vct undefined and
+    // the accreditation check has nothing to look up.
+    vct: controller.selectedCredentialType?.vct ?? issuerIdentity.vct,
     title: controller.issuerName,
   });
 

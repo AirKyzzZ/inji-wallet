@@ -1,5 +1,6 @@
 import {
   checkVeranaAccreditation,
+  fetchPermissions,
   isPermissionActive,
   resetPermissionCache,
   resolveAccreditation,
@@ -29,7 +30,7 @@ describe('veranaPermissions', () => {
     global.fetch = mockFetch as typeof fetch;
   });
 
-  it('grants an active issuer permission and requests the full VPR page', async () => {
+  it('grants an active issuer permission and asks the VPR only for this DID', async () => {
     mockFetch.mockResolvedValue(
       jsonResponse({permissions: [wirePermission()]}),
     );
@@ -41,7 +42,22 @@ describe('veranaPermissions', () => {
       reason: 'An active issuer permission covers this schema',
     });
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('/verana/perm/v1/list?response_max_size=1000'),
+      expect.stringContaining(
+        `/verana/perm/v1/find_with_did?did=${encodeURIComponent(
+          did,
+        )}&type=1&schema_id=${schemaId}`,
+      ),
+      expect.anything(),
+    );
+  });
+
+  it('asks for permission type 2 on a verifier check', async () => {
+    mockFetch.mockResolvedValue(jsonResponse({permissions: []}));
+
+    await checkVeranaAccreditation({did, schemaId, role: 'verifier'});
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.stringContaining('&type=2&'),
       expect.anything(),
     );
   });
@@ -175,7 +191,7 @@ describe('veranaPermissions', () => {
           }),
         );
       }
-      if (url.includes('/verana/perm/v1/list')) {
+      if (url.includes('/verana/perm/v1/')) {
         return Promise.resolve(jsonResponse({permissions: [wirePermission()]}));
       }
       return Promise.reject(new Error(`unexpected fetch: ${url}`));
@@ -209,7 +225,7 @@ describe('veranaPermissions', () => {
           }),
         );
       }
-      if (url.includes('/verana/perm/v1/list')) {
+      if (url.includes('/verana/perm/v1/')) {
         return Promise.resolve(
           jsonResponse({permissions: [wirePermission({schema_id: '253'})]}),
         );
@@ -225,18 +241,24 @@ describe('veranaPermissions', () => {
     });
   });
 
+  it('refuses when the VPR has no such schema, rather than failing open', async () => {
+    mockFetch.mockResolvedValue({ok: false, status: 404});
+
+    await expect(
+      checkVeranaAccreditation({did, schemaId, role: 'issuer'}),
+    ).resolves.toEqual({
+      granted: false,
+      reason: 'No issuer permission for this schema',
+    });
+  });
+
   it('treats a full VPR page as truncated, so a grant beyond the cut cannot read as absent', async () => {
     const page = Array.from({length: 1000}, (_, index) =>
       wirePermission({id: `${index}`, did: 'did:webvh:filler.example'}),
     );
     mockFetch.mockResolvedValue(jsonResponse({permissions: page}));
 
-    const result = await checkVeranaAccreditation({
-      did,
-      schemaId,
-      role: 'issuer',
-    });
-    expect(result.granted).toBeUndefined();
+    await expect(fetchPermissions()).resolves.toBeUndefined();
   });
 
   it('holds a permission inactive outside its effective window', () => {

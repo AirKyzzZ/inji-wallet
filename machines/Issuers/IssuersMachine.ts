@@ -280,16 +280,10 @@ export const IssuersMachine = model.createMachine(
           checkingIssuerTrust: {
             invoke: {
               src: 'checkIssuerIdInStoredTrustedIssuers',
-              onDone: [
-                {
-                  cond: 'isIssuerIdInTrustedIssuers',
-                  target: 'sendConsentGiven.sending',
-                },
-                {
-                  actions: ['setRequestConsentToTrustIssuer'],
-                  target: 'credentialOfferDownloadConsent',
-                },
-              ],
+              onDone: {
+                actions: ['setRequestConsentToTrustIssuer'],
+                target: 'credentialOfferDownloadConsent',
+              },
             },
           },
           credentialOfferDownloadConsent: {

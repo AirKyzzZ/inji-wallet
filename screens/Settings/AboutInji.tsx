@@ -19,6 +19,8 @@ import {__InjiVersion} from '../../shared/GlobalVariables';
 import {BannerNotificationContainer} from '../../components/BannerNotificationContainer';
 import {SvgImage} from '../../components/ui/svg';
 import LinearGradient from 'react-native-linear-gradient';
+import {VERANA_NETWORKS} from '../../shared/verana/constants';
+import {VERANA_STRINGS} from '../../components/VeranaTrustCard/strings';
 
 export const AboutInji: React.FC<AboutInjiProps> = ({appId}) => {
   const {t} = useTranslation('AboutInji');
@@ -114,6 +116,22 @@ export const AboutInji: React.FC<AboutInjiProps> = ({appId}) => {
                 </Text>
               </TouchableOpacity>
             </Row>
+            <Column
+              testID="veranaNetworks"
+              style={Theme.AboutInjiScreenStyle.innerContainerStyle}>
+              <Text
+                weight="semibold"
+                style={Theme.AboutInjiScreenStyle.moreDetailstextStyle}>
+                {VERANA_STRINGS.aboutNetworks}
+              </Text>
+              {VERANA_NETWORKS.map(network => (
+                <Text
+                  key={network.id}
+                  style={Theme.AboutInjiScreenStyle.moreDetailstextStyle}>
+                  {`${network.name} (${network.id}): ${network.indexerUrl}`}
+                </Text>
+              ))}
+            </Column>
           </Column>
 
           <Column

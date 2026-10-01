@@ -454,5 +454,7 @@ fileignoreconfig:
     checksum: 2eafc69d8e7949f9e2f632a536863d4e263c9d076e34e87e83ffa233bc33d577
   - filename: shared/verana/x509.ts
     checksum: cdb88c1680350216b06261f32adea027ea58c43836b62c04f0e5a6c55abb4a8c
+  - filename: screens/Settings/AboutInji.tsx
+    checksum: 78d1cbf3b7aae85991400be63524dda5c76b3dabbde869f155040902b2186c20
     version: "1.0"
 

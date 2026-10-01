@@ -1,8 +1,7 @@
-import type {VeranaTrustCredential} from './veranaTrustService';
+import type {VeranaEcsCredential} from './veranaTrustService';
 
 export type EcsAssetRef = {
   uri: string;
-  /** Absent on v3-shaped credentials, which carry no integrity digest at all. */
   digest?: string;
 };
 
@@ -31,50 +30,40 @@ export type EcsOrganization = {
   lei?: string;
 };
 
-export type EcsVerdict = 'TRUSTED' | 'PARTIAL' | 'UNTRUSTED';
-
 const str = (
-  claims: Record<string, unknown> | undefined,
+  claims: Record<string, unknown>,
   key: string,
 ): string | undefined => {
-  const value = claims?.[key];
+  const value = claims[key];
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 };
 
 const int = (
-  claims: Record<string, unknown> | undefined,
+  claims: Record<string, unknown>,
   key: string,
 ): number | undefined => {
-  const value = claims?.[key];
+  const value = claims[key];
   return typeof value === 'number' && Number.isFinite(value)
     ? value
     : undefined;
 };
 
-// The published schemas are v4 (`<thing>Uri` + `<thing>DigestSri`) but the deployed
-// testnet services still issue v3 (`<thing>` + `<thing>Hash`, and no logo digest at
-// all). Both shapes have to read until every service is re-issued.
 const asset = (
-  claims: Record<string, unknown> | undefined,
-  v4Uri: string,
-  v4Digest: string,
-  v3Uri: string,
-  v3Digest?: string,
+  claims: Record<string, unknown>,
+  uriKey: string,
+  digestKey: string,
 ): EcsAssetRef | undefined => {
-  const uri = str(claims, v4Uri) ?? str(claims, v3Uri);
+  const uri = str(claims, uriKey);
   if (!uri) return undefined;
-  const digest =
-    str(claims, v4Digest) ?? (v3Digest ? str(claims, v3Digest) : undefined);
+  const digest = str(claims, digestKey);
   return digest ? {uri, digest} : {uri};
 };
 
-// [PW-POT-4]: claims render as facts only from credentials the resolver verified. A revoked or
-// tampered ECS credential still carries claims; they belong in the failure detail, not blocks 2-3.
 export const readEcsService = (
-  credential: VeranaTrustCredential | undefined,
+  credential: VeranaEcsCredential | undefined,
 ): EcsService | undefined => {
   const claims = credential?.claims;
-  if (!claims || !isValid(credential)) return undefined;
+  if (!claims) return undefined;
 
   const format = str(claims, 'descriptionFormat');
   return {
@@ -84,35 +73,27 @@ export const readEcsService = (
     description: str(claims, 'description'),
     descriptionFormat:
       format === 'text/markdown' ? 'text/markdown' : 'text/plain',
-    logo: asset(claims, 'logoUri', 'logoDigestSri', 'logo'),
+    logo: asset(claims, 'logoUri', 'logoDigestSri'),
     minimumAgeRequired: int(claims, 'minimumAgeRequired'),
     terms: asset(
       claims,
       'termsAndConditionsUri',
       'termsAndConditionsDigestSri',
-      'termsAndConditions',
-      'termsAndConditionsHash',
     ),
-    privacy: asset(
-      claims,
-      'privacyPolicyUri',
-      'privacyPolicyDigestSri',
-      'privacyPolicy',
-      'privacyPolicyHash',
-    ),
+    privacy: asset(claims, 'privacyPolicyUri', 'privacyPolicyDigestSri'),
   };
 };
 
 export const readEcsOrganization = (
-  credential: VeranaTrustCredential | undefined,
+  credential: VeranaEcsCredential | undefined,
 ): EcsOrganization | undefined => {
   const claims = credential?.claims;
-  if (!claims || !isValid(credential)) return undefined;
+  if (!claims) return undefined;
 
   return {
     id: str(claims, 'id'),
     name: str(claims, 'name'),
-    logo: asset(claims, 'logoUri', 'logoDigestSri', 'logo'),
+    logo: asset(claims, 'logoUri', 'logoDigestSri'),
     registryId: str(claims, 'registryId'),
     address: str(claims, 'address'),
     countryCode: str(claims, 'countryCode')?.toUpperCase(),
@@ -123,62 +104,23 @@ export const readEcsOrganization = (
   };
 };
 
-const isValid = (credential: VeranaTrustCredential | undefined): boolean =>
-  credential?.result === 'VALID';
-
 export const findEcsCredential = (
-  credentials: VeranaTrustCredential[] | undefined,
-  ecsTypes: string[],
-): VeranaTrustCredential | undefined =>
-  credentials?.find(c => c.ecsType && ecsTypes.includes(c.ecsType));
+  credentials: Array<VeranaEcsCredential> | undefined,
+  ecsSchemas: Array<string>,
+): VeranaEcsCredential | undefined =>
+  credentials?.find(credential => ecsSchemas.includes(credential.ecsSchema));
 
 export const findServiceCredential = (
-  credentials: VeranaTrustCredential[] | undefined,
-) => findEcsCredential(credentials, ['ECS-SERVICE']);
+  credentials: Array<VeranaEcsCredential> | undefined,
+) => findEcsCredential(credentials, ['ServiceCredential']);
 
 export const findOrganizationCredential = (
-  credentials: VeranaTrustCredential[] | undefined,
+  credentials: Array<VeranaEcsCredential> | undefined,
 ) =>
   findEcsCredential(credentials, [
-    'ECS-ORG',
-    'ECS-ORGANIZATION',
-    'ECS-PERSONA',
+    'OrganizationCredential',
+    'PersonaCredential',
   ]);
-
-// The badge renders only when both mandatory identity credentials verify. Exactly one
-// of them is PARTIAL, which the resolver's TrustStatus union reserves but never emits.
-export const deriveVerdict = (
-  credentials: VeranaTrustCredential[] | undefined,
-): EcsVerdict => {
-  const service = isValid(findServiceCredential(credentials));
-  const organization = isValid(findOrganizationCredential(credentials));
-
-  if (service && organization) return 'TRUSTED';
-  if (service || organization) return 'PARTIAL';
-  return 'UNTRUSTED';
-};
-
-// Wording is fixed by the versioned card at playground/public/trust-card/index.html. Same sentence
-// in every wallet, or the same evaluation reads differently depending on who rendered it.
-export const describeVerdict = (
-  verdict: EcsVerdict,
-  credentials: VeranaTrustCredential[] | undefined,
-): string => {
-  if (verdict === 'TRUSTED')
-    return 'Both identity credentials verified against the Verana public registry';
-  if (verdict === 'UNTRUSTED') {
-    // A service can present structurally valid ECS credentials and still be untrusted, because
-    // whoever issued them is not trusted. Saying "neither credential verified" beside two green
-    // ticks would be a visible contradiction, so name the reason the resolver actually gave.
-    return isValid(findServiceCredential(credentials)) ||
-      isValid(findOrganizationCredential(credentials))
-      ? 'The Verana public registry does not vouch for this service.'
-      : 'Neither identity credential verified. This counterparty cannot present verifiable trust credentials.';
-  }
-  return isValid(findServiceCredential(credentials))
-    ? 'The service credential verified. Nothing verifies who operates it.'
-    : 'The operator credential verified. Nothing verifies the service itself.';
-};
 
 const MARKDOWN_LINK = /\[([^\]]*)\]\(([^)]*)\)/g;
 const BARE_URL = /\bhttps?:\/\/\S+/gi;

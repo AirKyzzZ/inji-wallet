@@ -50,7 +50,6 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
     clientId: controller.verifierClientId,
     role: 'verifier',
     vct: controller.verifierRequestedVct,
-    title: controller.verifierNameInTrustModal,
   });
 
   const [errorModal, resetErrorModal] = useOvpErrorModal({

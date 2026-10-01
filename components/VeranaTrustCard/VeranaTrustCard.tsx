@@ -1,16 +1,16 @@
-import {IS_VERANA_TESTNET as isVeranaTestnet} from '../../shared/verana/constants';
 import type {VeranaServiceInfo as ServiceInfo} from '../../shared/verana/serviceInfo';
 import type {VeranaAccreditationCheck as VeranaPermissionCheck} from '../../shared/verana/veranaPermissions';
-import type {VeranaTrustStatus} from '../../shared/verana/veranaTrustService';
-import {
-  describeVeranaVerdict,
-  VERANA_EXPLORER_URL,
-} from '../../shared/verana/veranaVerdict';
+import type {
+  VeranaTrustStatus,
+  VeranaUntrustedReason,
+} from '../../shared/verana/veranaTrustService';
+import {describeVeranaVerdict} from '../../shared/verana/veranaVerdict';
 import React, {memo} from 'react';
 import {Linking, Text, TouchableOpacity, View} from 'react-native';
 import {
   ageRestriction,
   authorizedFor,
+  evaluatedAt as evaluatedAtLabel,
   notAuthorizedFor,
   VERANA_STRINGS,
 } from './strings';
@@ -37,22 +37,23 @@ export type VeranaTrustAsk = {
   isChecking: boolean;
 };
 
-type Props = {
+export type VeranaTrustCardProps = {
   did: string;
   serviceInfo?: ServiceInfo;
   trustStatus: VeranaTrustStatus;
+  reason?: VeranaUntrustedReason;
   isFetchingInfo: boolean;
   isResolving?: boolean;
+  networkLabel?: string;
+  explorerUrl?: string;
+  evaluatedAt?: string;
+  onRetry?: () => void;
   ask?: VeranaTrustAsk;
 };
 
 const VERDICT_TONE: Record<VeranaTrustStatus, {color: string; label: string}> =
   {
     TRUSTED: {color: veranaCardColors.ok, label: VERANA_STRINGS.verdictTrusted},
-    PARTIAL: {
-      color: veranaCardColors.warn,
-      label: VERANA_STRINGS.verdictPartial,
-    },
     UNTRUSTED: {
       color: veranaCardColors.bad,
       label: VERANA_STRINGS.verdictUntrusted,
@@ -75,10 +76,15 @@ const VeranaTrustCard = ({
   did,
   serviceInfo,
   trustStatus,
+  reason,
   isFetchingInfo,
   isResolving,
+  networkLabel,
+  explorerUrl,
+  evaluatedAt,
+  onRetry,
   ask,
-}: Props) => {
+}: VeranaTrustCardProps) => {
   const organization = serviceInfo?.organization;
   const claimsVerified = Boolean(serviceInfo?.claimsVerified);
   const serviceCredentialPresented = Boolean(serviceInfo?.name);
@@ -96,9 +102,14 @@ const VeranaTrustCard = ({
   const withheldDetail =
     trustStatus === 'UNVERIFIED'
       ? VERANA_STRINGS.notChecked
-      : serviceInfo?.claimsSelfIssued
-      ? VERANA_STRINGS.claimsSelfIssued
       : VERANA_STRINGS.claimsWithheld;
+  const canRetry =
+    Boolean(onRetry) &&
+    !isResolving &&
+    (trustStatus === 'UNVERIFIED' ||
+      (ask !== undefined &&
+        !ask.isChecking &&
+        ask.accreditation?.granted === undefined));
 
   const minimumAgeRequired = serviceInfo?.minimumAgeRequired ?? 0;
   // Conditions read off the ECS-Service credential, so they are claims too: an unanchored service
@@ -116,9 +127,9 @@ const VeranaTrustCard = ({
         <Text style={styles.didText} numberOfLines={1}>
           {did}
         </Text>
-        {isVeranaTestnet && (
-          <View style={styles.testnetChip}>
-            <Text style={styles.testnetChipText}>{VERANA_STRINGS.testnet}</Text>
+        {networkLabel && (
+          <View style={styles.networkChip}>
+            <Text style={styles.networkChipText}>{networkLabel}</Text>
           </View>
         )}
         <VeranaMark />
@@ -209,22 +220,28 @@ const VeranaTrustCard = ({
             styles.verdictNote,
             {
               color:
-                !isResolving &&
-                (trustStatus === 'PARTIAL' || trustStatus === 'UNTRUSTED')
+                !isResolving && trustStatus === 'UNTRUSTED'
                   ? veranaCardColors.bad
                   : veranaCardColors.sub,
             },
           ]}>
           {isResolving
             ? VERANA_STRINGS.checkingRegistry
-            : describeVeranaVerdict(trustStatus, {
-                resolved: trustStatus !== 'UNVERIFIED',
-                hasServiceCredential,
-                hasOrganizationCredential,
-                structurallyValid:
-                  serviceCredentialPresented || organizationCredentialPresented,
-              })}
+            : describeVeranaVerdict(trustStatus, reason)}
         </Text>
+        {evaluatedAt && !isResolving && (
+          <Text style={styles.footnote}>
+            {evaluatedAtLabel(new Date(evaluatedAt).toLocaleString())}
+          </Text>
+        )}
+        {canRetry && (
+          <TouchableOpacity
+            accessibilityRole="button"
+            style={styles.explorerRow}
+            onPress={onRetry}>
+            <Text style={styles.explorerText}>{VERANA_STRINGS.retry}</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {ask && <AskBlock ask={ask} />}
@@ -271,21 +288,19 @@ const VeranaTrustCard = ({
         <Text style={styles.loading}>{VERANA_STRINGS.resolving}</Text>
       )}
 
-      <TouchableOpacity
-        accessibilityRole="link"
-        style={styles.explorerRow}
-        onPress={() =>
-          Linking.openURL(
-            `${VERANA_EXPLORER_URL}/did/${encodeURIComponent(did)}`,
-          )
-        }>
-        <Text style={styles.explorerText} numberOfLines={1}>
-          {VERANA_STRINGS.openInVerana}
-        </Text>
-        <ArrowUpRightIcon color={veranaCardColors.brand} />
-      </TouchableOpacity>
+      {explorerUrl && (
+        <TouchableOpacity
+          accessibilityRole="link"
+          style={styles.explorerRow}
+          onPress={() => Linking.openURL(explorerUrl)}>
+          <Text style={styles.explorerText} numberOfLines={1}>
+            {VERANA_STRINGS.openInVerana}
+          </Text>
+          <ArrowUpRightIcon color={veranaCardColors.brand} />
+        </TouchableOpacity>
+      )}
 
-      {isVeranaTestnet && (
+      {networkLabel && (
         <Text style={styles.footnote}>{VERANA_STRINGS.demoNetwork}</Text>
       )}
     </View>
@@ -318,6 +333,7 @@ const AskBlock = ({ask}: {ask: VeranaTrustAsk}) => {
             ? VERANA_STRINGS.authorizedIssuer
             : VERANA_STRINGS.authorizedVerifier,
           ask.credential,
+          ask.accreditation?.ecosystemName,
         );
 
   return (

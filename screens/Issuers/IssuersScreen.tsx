@@ -34,7 +34,10 @@ import {AUTH_ROUTES} from '../../routes/routesConstants';
 import {TransactionCodeModal} from './TransactionCodeScreen';
 import {TrustModal} from '../../components/TrustModal';
 import {SendVPScreen} from '../Scan/SendVPScreen';
-import {resolveIssuerIdentity} from '../../shared/verana/issuerDid';
+import {
+  IssuerIdentity,
+  resolveIssuerIdentity,
+} from '../../shared/verana/issuerDid';
 import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
 
 import {AuthorizationType} from '../../shared/constants';
@@ -65,29 +68,35 @@ export const IssuersScreen: React.FC<
   const issuerHost =
     controller.credentialOfferCredentialIssuer ||
     controller.selectedIssuer?.credential_issuer_host;
-  const [issuerIdentity, setIssuerIdentity] = useState<{
-    did?: string;
-    vct?: string;
-  }>({});
+  const credentialOffer = controller.credentialOfferCredentialIssuer
+    ? controller.credentialOffer
+    : undefined;
+  const identityKey = `${issuerHost}|${credentialOffer}`;
+  const [resolvedIdentity, setResolvedIdentity] = useState<{
+    key: string;
+    identity: IssuerIdentity;
+  }>();
+  const issuerIdentity =
+    resolvedIdentity?.key === identityKey
+      ? resolvedIdentity.identity
+      : undefined;
   useEffect(() => {
     let cancelled = false;
-    setIssuerIdentity({});
-    resolveIssuerIdentity(issuerHost).then(
-      identity => !cancelled && setIssuerIdentity(identity),
+    resolveIssuerIdentity(issuerHost, credentialOffer).then(
+      identity =>
+        !cancelled && setResolvedIdentity({key: identityKey, identity}),
     );
     return () => {
       cancelled = true;
     };
-  }, [issuerHost]);
+  }, [issuerHost, credentialOffer, identityKey]);
 
   const verana = useVeranaTrust({
-    clientId: issuerIdentity.did,
+    clientId: issuerIdentity?.did,
     role: 'issuer',
-    // The offer already names its configuration, so prefer that vct: an issuer
-    // publishing several configurations leaves issuerIdentity.vct undefined and
-    // the accreditation check has nothing to look up.
-    vct: controller.selectedCredentialType?.vct ?? issuerIdentity.vct,
-    title: controller.issuerName,
+    vct: issuerIdentity?.vct,
+    didProof: issuerIdentity?.proof,
+    pending: Boolean(issuerHost) && !issuerIdentity,
   });
 
   const translationKey = `errors.verificationFailed.${controller.verificationErrorMessage}`;

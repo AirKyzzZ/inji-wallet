@@ -1,64 +1,48 @@
-import type {VeranaTrustStatus} from './veranaTrustService';
+import {VERANA_NETWORKS, VeranaNetwork} from './constants';
+import type {
+  VeranaTrustStatus,
+  VeranaUntrustedReason,
+} from './veranaTrustService';
 
-export const VERANA_EXPLORER_URL = 'https://explorer.testnet.verana.network';
-
-export type VeranaTrustEvidence = {
-  resolved: boolean;
-  hasServiceCredential: boolean;
-  hasOrganizationCredential: boolean;
-  structurallyValid?: boolean;
+const UNTRUSTED_REASONS: Record<VeranaUntrustedReason, string> = {
+  'no-did-document':
+    'This service cannot present verifiable trust credentials.',
+  'not-registered': 'The Verana public registry does not know this service.',
+  'not-trusted': 'The Verana public registry does not vouch for this service.',
+  'ecosystem-not-trusted':
+    'Only ecosystems this wallet does not accept vouch for this service.',
+  'did-not-proven': 'This service could not prove that it controls this DID.',
 };
 
-// Wording is fixed by the versioned card. A service can present structurally valid ECS credentials
-// and still be untrusted, because whoever issued them is not trusted, so naming the reason the
-// resolver actually gave avoids a sentence that contradicts the ticks beside it.
 export const describeVeranaVerdict = (
   status: VeranaTrustStatus,
-  evidence: VeranaTrustEvidence,
+  reason?: VeranaUntrustedReason,
 ): string => {
   if (status === 'UNVERIFIED') {
-    return 'The Verana resolver could not be reached. This counterparty is neither trusted nor untrusted.';
+    return 'The Verana registry could not be reached. This counterparty is neither trusted nor untrusted.';
   }
   if (status === 'TRUSTED') {
-    return 'Both identity credentials verified against the Verana public registry';
+    return 'The Verana public registry trusts this service.';
   }
-  if (status === 'PARTIAL') {
-    return evidence.hasServiceCredential
-      ? 'The service credential verified. Nothing verifies who operates it.'
-      : 'The operator credential verified. Nothing verifies the service itself.';
-  }
-  return evidence.structurallyValid
-    ? 'The Verana public registry does not vouch for this service.'
-    : 'Neither identity credential verified. This counterparty cannot present verifiable trust credentials.';
+  return UNTRUSTED_REASONS[reason ?? 'not-trusted'];
 };
 
-/**
- * Only a verdict settles a resolution. A placeholder carrying a name but no verdict is still in
- * flight, and treating it as an answer makes the card state that the resolver was unreachable
- * before it was ever called.
- */
-export const isVeranaResolutionPending = (input: {
-  did?: string;
-  trustStatus?: VeranaTrustStatus;
-  isFetching?: boolean;
-  failed?: boolean;
-}): boolean => {
-  if (input.isFetching) return true;
-  if (!input.did) return false;
-  return !input.failed && !input.trustStatus;
+export const veranaNetworkLabel = (
+  network?: VeranaNetwork,
+): string | undefined => {
+  const labels = (network ? [network] : VERANA_NETWORKS)
+    .filter(candidate => !candidate.production)
+    .map(candidate => candidate.name.toUpperCase());
+  return labels.length ? labels.join(' · ') : undefined;
 };
 
-/**
- * Blocks on a refusal and while a check is still running, never on could-not-determine: an
- * unreachable registry is a warning, and refusing on it would punish a flaky network.
- */
 export const isVeranaActionBlocked = (input: {
   trustStatus: VeranaTrustStatus;
   isResolving: boolean;
   permissionGranted?: boolean;
   isCheckingPermission?: boolean;
-}): boolean => {
-  if (input.isResolving || input.isCheckingPermission) return true;
-  if (input.trustStatus === 'UNTRUSTED') return true;
-  return input.permissionGranted === false;
-};
+}): boolean =>
+  input.isResolving ||
+  Boolean(input.isCheckingPermission) ||
+  input.trustStatus !== 'TRUSTED' ||
+  input.permissionGranted !== true;

@@ -1,6 +1,7 @@
-import {useEffect, useState} from 'react';
+import {useCallback, useEffect, useState} from 'react';
 import {veranaLog} from './constants';
 import {canonicalVeranaDid} from './canonicalDid';
+import type {IssuerProof} from './issuerDid';
 import {toVeranaServiceInfo, VeranaServiceInfo} from './serviceInfo';
 import {
   checkVeranaAccreditation,
@@ -8,13 +9,13 @@ import {
 } from './veranaPermissions';
 import {
   extractDidFromClientId,
-  fetchVeranaTrustDetails,
+  resolveVeranaTrust,
+  unresolved,
+  VeranaTrustResolution,
   VeranaTrustStatus,
+  VeranaUntrustedReason,
 } from './veranaTrustService';
-import {
-  isVeranaActionBlocked,
-  isVeranaResolutionPending,
-} from './veranaVerdict';
+import {isVeranaActionBlocked, veranaNetworkLabel} from './veranaVerdict';
 import {credentialNameFromVct} from './vctName';
 
 const debug = veranaLog('useVeranaTrust');
@@ -23,55 +24,78 @@ type Options = {
   /** Raw OID4VP client_id, or a bare DID. `decentralized_identifier:` is stripped. */
   clientId?: string;
   role: 'issuer' | 'verifier';
-  /** Schema the counterparty is accredited against, for the Q2/Q3 check. */
-  schemaId?: string;
   vct?: string;
-  title?: string;
+  didProof?: IssuerProof;
+  pending?: boolean;
 };
 
 export type VeranaTrust = {
   did?: string;
   serviceInfo?: VeranaServiceInfo;
   trustStatus: VeranaTrustStatus;
+  reason?: VeranaUntrustedReason;
   isResolving: boolean;
   accreditation?: VeranaAccreditationCheck;
   isCheckingAccreditation: boolean;
   credentialName?: string;
+  networkLabel?: string;
+  explorerUrl?: string;
+  evaluatedAt?: string;
   /** Accept/share must be disabled while this is true. */
   blocked: boolean;
+  retry: () => void;
 };
+
+const resolveWithProof = (
+  did: string,
+  didProof?: IssuerProof,
+): Promise<VeranaTrustResolution> => {
+  if (didProof === 'invalid') {
+    return Promise.resolve(unresolved(did, 'UNTRUSTED', 'did-not-proven'));
+  }
+  if (didProof === 'unavailable') {
+    return Promise.resolve(unresolved(did, 'UNVERIFIED'));
+  }
+  return resolveVeranaTrust(did);
+};
+
+type Keyed<T> = {key: string; value: T};
+
+const settled = <T>(entry: Keyed<T> | undefined, key: string) =>
+  entry?.key === key ? entry.value : undefined;
 
 export const useVeranaTrust = (options: Options): VeranaTrust => {
   const clientDid = extractDidFromClientId(options.clientId);
-  const [did, setDid] = useState<string | undefined>(undefined);
-  const [serviceInfo, setServiceInfo] = useState<VeranaServiceInfo>();
-  const [failed, setFailed] = useState(false);
-  const [isFetching, setIsFetching] = useState(false);
-  const [accreditation, setAccreditation] =
-    useState<VeranaAccreditationCheck>();
-  const [isCheckingAccreditation, setIsChecking] = useState(false);
-  const [credentialName, setCredentialName] = useState<string>();
+  const [attempt, setAttempt] = useState(0);
+  const [canonical, setCanonical] = useState<Keyed<string | undefined>>();
+  const [resolved, setResolved] = useState<Keyed<VeranaTrustResolution>>();
+  const [checked, setChecked] = useState<Keyed<VeranaAccreditationCheck>>();
+  const [named, setNamed] = useState<Keyed<string | undefined>>();
+
+  const retry = useCallback(() => setAttempt(value => value + 1), []);
+
+  const did = settled(canonical, `${clientDid}`);
+  const resolutionKey = `${did}|${options.didProof}|${attempt}`;
+  const accreditationKey = `${did}|${options.role}|${options.vct}|${attempt}`;
+  const resolution = settled(resolved, resolutionKey);
+  const accreditation = settled(checked, accreditationKey);
+  const vctName = settled(named, `${options.vct}`);
+  const isCheckingAccreditation = Boolean(did) && !accreditation;
 
   useEffect(() => {
     let cancelled = false;
-    setCredentialName(undefined);
     credentialNameFromVct(options.vct).then(
-      name => !cancelled && setCredentialName(name),
+      name => !cancelled && setNamed({key: `${options.vct}`, value: name}),
     );
     return () => {
       cancelled = true;
     };
   }, [options.vct]);
 
-  // Only the did:webvh form is registered. Querying with the did:web client_id first always
-  // 404s, and that failure settled the card on COULD NOT VERIFY - which never blocks - so an
-  // unaccredited counterparty could still be shared with. Ask nothing until the canonical DID
-  // is known; until then the card is RESOLVING, which is what an unasked question looks like.
   useEffect(() => {
     let cancelled = false;
-    setDid(undefined);
     canonicalVeranaDid(clientDid).then(
-      resolved => !cancelled && setDid(resolved),
+      value => !cancelled && setCanonical({key: `${clientDid}`, value}),
     );
     return () => {
       cancelled = true;
@@ -81,75 +105,59 @@ export const useVeranaTrust = (options: Options): VeranaTrust => {
   useEffect(() => {
     if (!did) return;
     let cancelled = false;
-    setFailed(false);
-    setIsFetching(true);
-    fetchVeranaTrustDetails(did)
-      .then(details => {
-        if (cancelled) return;
-        const info = toVeranaServiceInfo(details);
-        if (info) setServiceInfo(info);
-        else setFailed(true);
-      })
-      .catch(() => !cancelled && setFailed(true))
-      .finally(() => !cancelled && setIsFetching(false));
+    resolveWithProof(did, options.didProof)
+      .catch(() => unresolved(did, 'UNVERIFIED'))
+      .then(value => !cancelled && setResolved({key: resolutionKey, value}));
     return () => {
       cancelled = true;
     };
-  }, [did]);
+  }, [did, options.didProof, resolutionKey]);
 
   useEffect(() => {
     if (!did) return;
     let cancelled = false;
-    setIsChecking(true);
-    checkVeranaAccreditation({
-      did,
-      role: options.role,
-      schemaId: options.schemaId,
-      vct: options.vct,
-      title: options.title,
-    })
-      .then(result => !cancelled && setAccreditation(result))
-      .catch(
-        () =>
-          !cancelled &&
-          setAccreditation({
-            granted: undefined,
-            reason: 'This could not be checked against the registry.',
-          }),
-      )
-      .finally(() => !cancelled && setIsChecking(false));
+    checkVeranaAccreditation({did, role: options.role, vct: options.vct}).then(
+      value => !cancelled && setChecked({key: accreditationKey, value}),
+    );
     return () => {
       cancelled = true;
     };
-  }, [did, options.role, options.schemaId, options.vct, options.title]);
+  }, [did, options.role, options.vct, accreditationKey]);
 
-  const isResolving = isVeranaResolutionPending({
-    did,
-    trustStatus: serviceInfo?.trustStatus,
-    isFetching,
-    failed,
-  });
-  const trustStatus: VeranaTrustStatus =
-    serviceInfo?.trustStatus ?? 'UNVERIFIED';
+  const isResolving = Boolean(clientDid) && (!did || !resolution);
+  const trustStatus = resolution?.trustStatus ?? 'UNVERIFIED';
+  const network = resolution?.network;
+  const blocked =
+    Boolean(options.pending) ||
+    (Boolean(clientDid) &&
+      isVeranaActionBlocked({
+        trustStatus,
+        isResolving,
+        permissionGranted: accreditation?.granted,
+        isCheckingPermission: isCheckingAccreditation,
+      }));
 
   debug(
     `gate did=${did} trust=${trustStatus} resolving=${isResolving} vct=${options.vct} ` +
-      `granted=${accreditation?.granted} checking=${isCheckingAccreditation}`,
+      `granted=${accreditation?.granted} checking=${isCheckingAccreditation} blocked=${blocked}`,
   );
 
   return {
     did,
-    serviceInfo,
+    serviceInfo: resolution && toVeranaServiceInfo(resolution),
     trustStatus,
+    reason: resolution?.reason,
     isResolving,
     accreditation,
     isCheckingAccreditation,
-    credentialName,
-    blocked: isVeranaActionBlocked({
-      trustStatus,
-      isResolving,
-      permissionGranted: accreditation?.granted,
-      isCheckingPermission: isCheckingAccreditation,
-    }),
+    credentialName: accreditation?.credentialName ?? vctName,
+    networkLabel: veranaNetworkLabel(network),
+    explorerUrl:
+      did && network?.explorerUrl
+        ? `${network.explorerUrl}/did/${encodeURIComponent(did)}`
+        : undefined,
+    evaluatedAt: resolution?.evaluatedAt,
+    blocked,
+    retry,
   };
 };

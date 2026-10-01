@@ -6,8 +6,7 @@ import {
   stripLinks,
 } from './veranaEcs';
 import type {
-  VeranaTrustCredential,
-  VeranaTrustDetails,
+  VeranaTrustResolution,
   VeranaTrustStatus,
 } from './veranaTrustService';
 
@@ -28,33 +27,17 @@ export type VeranaServiceInfo = {
     address?: string;
     officialPublicRegistryNumber?: string;
   };
-  /**
-   * The resolver anchored these ECS credentials in a registry the wallet trusts. A service that
-   * issues its own ECS credentials to itself presents structurally valid ones either way, so
-   * without this it would earn a green tick the registry never gave it.
-   */
   claimsVerified: boolean;
-  claimsSelfIssued: boolean;
 };
 
-const isSelfIssued = (
-  credential: VeranaTrustCredential | undefined,
-  did: string,
-): boolean =>
-  Boolean(credential?.issuedBy && credential.issuedBy.split('#')[0] === did);
-
 export const toVeranaServiceInfo = (
-  details: VeranaTrustDetails | undefined,
-): VeranaServiceInfo | undefined => {
-  if (!details) return undefined;
-
-  const {did, trustStatus, credentials} = details;
-  const serviceCredential = findServiceCredential(credentials);
-  const organizationCredential = findOrganizationCredential(credentials);
-  const service = readEcsService(serviceCredential);
-  const organization = readEcsOrganization(organizationCredential);
-
-  const claimsVerified = trustStatus === 'TRUSTED' || trustStatus === 'PARTIAL';
+  resolution: VeranaTrustResolution,
+): VeranaServiceInfo => {
+  const {did, trustStatus, ecsCredentials} = resolution;
+  const service = readEcsService(findServiceCredential(ecsCredentials));
+  const organization = readEcsOrganization(
+    findOrganizationCredential(ecsCredentials),
+  );
   const stripped = stripLinks(service?.description);
 
   return {
@@ -76,9 +59,6 @@ export const toVeranaServiceInfo = (
           officialPublicRegistryNumber: organization.registryId,
         }
       : undefined,
-    claimsVerified,
-    claimsSelfIssued:
-      isSelfIssued(serviceCredential, did) ||
-      isSelfIssued(organizationCredential, did),
+    claimsVerified: trustStatus === 'TRUSTED',
   };
 };

@@ -8,9 +8,7 @@ export const VERANA_STRINGS = {
   sectionAsksYouFor: 'Asks you for',
   sectionConditions: 'Conditions of connecting',
   registryChip: 'REG',
-  testnet: 'TESTNET',
   verdictTrusted: 'TRUSTED',
-  verdictPartial: 'PARTIAL',
   verdictUntrusted: 'UNTRUSTED',
   verdictUnverified: 'COULD NOT VERIFY',
   verdictResolving: 'CHECKING…',
@@ -34,22 +32,30 @@ export const VERANA_STRINGS = {
   intact: 'intact',
   noDigest: 'no digest',
   openInVerana: 'Open this DID in Verana',
+  retry: 'Retry',
+  aboutNetworks: 'Verana networks',
   demoNetwork: 'Demo network - do not share real data',
-  claimsSelfIssued:
-    'Issued by this service to itself, so nothing independent verifies it.',
 } as const;
 
 export const ageRestriction = (age: number) =>
   `This service requires you to be at least ${age} to connect`;
 
+export const evaluatedAt = (time: string) => `Checked ${time}`;
+
+const inEcosystem = (ecosystem?: string) =>
+  ecosystem ? ` in ${ecosystem}` : '';
+
 export const authorizedFor = (
   party: string,
   authority: string,
   credential: string,
-) => `${party} is an ${authority} of ${credential}`;
+  ecosystem?: string,
+) => `${party} is an ${authority} of ${credential}${inEcosystem(ecosystem)}`;
 
 export const notAuthorizedFor = (
   party: string,
   authority: string,
   credential: string,
-) => `${party} is not an ${authority} of ${credential}`;
+  ecosystem?: string,
+) =>
+  `${party} is not an ${authority} of ${credential}${inEcosystem(ecosystem)}`;

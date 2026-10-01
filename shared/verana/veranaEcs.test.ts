@@ -1,88 +1,70 @@
 import {
-  deriveVerdict,
   findOrganizationCredential,
+  findServiceCredential,
   readEcsOrganization,
   readEcsService,
 } from './veranaEcs';
-import type {VeranaTrustCredential} from './veranaTrustService';
+import type {VeranaEcsCredential} from './veranaTrustService';
 
-const service = (claims: Record<string, unknown>): VeranaTrustCredential => ({
-  ecsType: 'ECS-SERVICE',
-  result: 'VALID',
+const service = (claims: Record<string, unknown>): VeranaEcsCredential => ({
+  ecsSchema: 'ServiceCredential',
+  ecosystemId: 3,
   claims,
 });
 
 const organization = (
   claims: Record<string, unknown>,
-): VeranaTrustCredential => ({
-  ecsType: 'ECS-ORG',
-  result: 'VALID',
+): VeranaEcsCredential => ({
+  ecsSchema: 'OrganizationCredential',
+  ecosystemId: 3,
   claims,
 });
 
 describe('veranaEcs', () => {
-  // The testnet serves v3 claims while the published schemas are v4, so both
-  // shapes reach the wallet and both have to render.
-  it('reads a v3 service credential, which carries no integrity digest', () => {
+  it('reads a v4 service credential and keeps the digests', () => {
     const ecs = readEcsService(
       service({
-        name: 'Unfold Verifier',
-        termsAndConditions: 'https://example.org/terms.pdf',
-        privacyPolicy: 'https://example.org/privacy.pdf',
-      }),
-    );
-
-    expect(ecs?.name).toBe('Unfold Verifier');
-    expect(ecs?.terms?.uri).toBe('https://example.org/terms.pdf');
-    expect(ecs?.terms?.digest).toBeUndefined();
-  });
-
-  it('reads a v4 service credential and keeps the digest', () => {
-    const ecs = readEcsService(
-      service({
-        name: 'Unfold Verifier',
+        name: 'Accredited Issuer (demo)',
         termsAndConditionsUri: 'https://example.org/terms.pdf',
         termsAndConditionsDigestSri: 'sha384-abc',
         logoUri: 'https://example.org/logo.png',
         logoDigestSri: 'sha384-def',
+        minimumAgeRequired: 18,
       }),
     );
 
-    expect(ecs?.terms?.uri).toBe('https://example.org/terms.pdf');
-    expect(ecs?.terms?.digest).toBe('sha384-abc');
+    expect(ecs?.name).toBe('Accredited Issuer (demo)');
+    expect(ecs?.terms).toEqual({
+      uri: 'https://example.org/terms.pdf',
+      digest: 'sha384-abc',
+    });
     expect(ecs?.logo?.digest).toBe('sha384-def');
+    expect(ecs?.minimumAgeRequired).toBe(18);
   });
 
   it('reads the operator identity off an organization credential', () => {
     const ecs = readEcsOrganization(
       organization({
-        name: 'Verana Foundation',
-        countryCode: 'KY',
-        registryId: 'KY-XXX.XXX.XXX',
+        name: 'Playground Organization (demo)',
+        countryCode: 'fr',
+        registryId: 'FR-123',
       }),
     );
 
-    expect(ecs?.name).toBe('Verana Foundation');
-    expect(ecs?.countryCode).toBe('KY');
-    expect(ecs?.registryId).toBe('KY-XXX.XXX.XXX');
+    expect(ecs?.name).toBe('Playground Organization (demo)');
+    expect(ecs?.countryCode).toBe('FR');
+    expect(ecs?.registryId).toBe('FR-123');
   });
 
-  it('needs both checks verified before the verdict is TRUSTED', () => {
-    const both = [service({name: 'S'}), organization({name: 'O'})];
-    expect(deriveVerdict(both)).toBe('TRUSTED');
-
-    const serviceOnly = [service({name: 'S'})];
-    expect(deriveVerdict(serviceOnly)).not.toBe('TRUSTED');
-
-    expect(deriveVerdict([])).toBe('UNTRUSTED');
-    expect(deriveVerdict(undefined)).toBe('UNTRUSTED');
-  });
-
-  it('finds the organization credential among a mixed list', () => {
-    const found = findOrganizationCredential([
-      service({name: 'S'}),
+  it('finds the service and the operator by their ECS schema', () => {
+    const credentials = [
       organization({name: 'O'}),
-    ]);
-    expect(found?.claims?.name).toBe('O');
+      service({name: 'S'}),
+      {ecsSchema: 'PersonaCredential', claims: {name: 'P'}},
+    ];
+
+    expect(findServiceCredential(credentials)?.claims.name).toBe('S');
+    expect(findOrganizationCredential(credentials)?.claims.name).toBe('O');
+    expect(findOrganizationCredential([credentials[2]])?.claims.name).toBe('P');
   });
 });

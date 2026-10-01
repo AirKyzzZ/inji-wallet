@@ -1,88 +1,257 @@
-import {VERANA_RESOLVER_URL, veranaLog} from './constants';
+import {
+  fetchWithTimeout,
+  VERANA_NETWORKS,
+  VeranaNetwork,
+  veranaLog,
+} from './constants';
+import {isResolvableDid} from './didDocument';
 
 const debug = veranaLog('veranaTrustService');
 
-const DECISION_TIMEOUT_MS = 10000;
-const DETAILS_TIMEOUT_MS = 15000;
+const RESOLVE_TIMEOUT_MS = 15000;
 
-export type VeranaTrustCredential = {
-  ecsType?: string;
-  result?: string;
-  format?: string;
-  issuedBy?: string;
-  presentedBy?: string;
-  claims?: Record<string, unknown>;
+export type VeranaTrustStatus = 'TRUSTED' | 'UNTRUSTED' | 'UNVERIFIED';
+
+export type VeranaUntrustedReason =
+  | 'no-did-document'
+  | 'not-registered'
+  | 'not-trusted'
+  | 'ecosystem-not-trusted'
+  | 'did-not-proven';
+
+export type VeranaEcsCredential = {
+  ecsSchema: string;
+  ecosystemId?: number;
+  claims: Record<string, unknown>;
 };
-
-// UNVERIFIED is wallet-local: the peer identifies by DID but the resolver could not be
-// reached or answered malformed. Could-not-determine, never a refusal.
-export type VeranaTrustStatus =
-  | 'TRUSTED'
-  | 'PARTIAL'
-  | 'UNTRUSTED'
-  | 'UNVERIFIED';
 
 export type VeranaTrustResolution = {
   did: string;
   trustStatus: VeranaTrustStatus;
-  production: boolean;
+  network?: VeranaNetwork;
   evaluatedAt?: string;
-  evaluatedAtBlock?: number;
   expiresAt?: string;
+  ecsCredentials: Array<VeranaEcsCredential>;
+  failedCredentialIds: Array<string>;
+  reason?: VeranaUntrustedReason;
 };
 
-export type VeranaTrustDetails = VeranaTrustResolution & {
-  credentials: Array<VeranaTrustCredential>;
-};
+type NetworkAnswer =
+  | {kind: 'trusted' | 'untrusted'; resolution: VeranaTrustResolution}
+  | {kind: 'unanswered'};
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null;
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const isTrustStatus = (value: unknown): value is VeranaTrustStatus =>
-  value === 'TRUSTED' || value === 'PARTIAL' || value === 'UNTRUSTED';
+const asString = (value: unknown): string | undefined =>
+  typeof value === 'string' ? value : undefined;
 
-const parseResolution = (
+export const unresolved = (
+  did: string,
+  trustStatus: VeranaTrustStatus,
+  reason?: VeranaUntrustedReason,
+  network?: VeranaNetwork,
+): VeranaTrustResolution => ({
+  did,
+  trustStatus,
+  reason,
+  network,
+  ecsCredentials: [],
+  failedCredentialIds: [],
+});
+
+const parseEcsCredential = (value: unknown): VeranaEcsCredential[] =>
+  isRecord(value) &&
+  typeof value.ecsSchema === 'string' &&
+  isRecord(value.credentialSubject)
+    ? [
+        {
+          ecsSchema: value.ecsSchema,
+          ecosystemId:
+            typeof value.ecosystemId === 'number'
+              ? value.ecosystemId
+              : undefined,
+          claims: value.credentialSubject,
+        },
+      ]
+    : [];
+
+export const parseResolveResponse = (
   value: unknown,
-  requestedDid: string,
+  did: string,
+  network: VeranaNetwork,
 ): VeranaTrustResolution | undefined => {
   if (
     !isRecord(value) ||
-    value.did !== requestedDid ||
-    !isTrustStatus(value.trustStatus) ||
-    typeof value.production !== 'boolean'
+    value.did !== did ||
+    typeof value.trusted !== 'boolean'
   ) {
     return undefined;
   }
-
+  const presentations = Array.isArray(value.presentations)
+    ? value.presentations
+    : [];
   return {
-    did: value.did,
-    trustStatus: value.trustStatus,
-    production: value.production,
-    evaluatedAt:
-      typeof value.evaluatedAt === 'string' ? value.evaluatedAt : undefined,
-    evaluatedAtBlock:
-      typeof value.evaluatedAtBlock === 'number'
-        ? value.evaluatedAtBlock
-        : undefined,
-    expiresAt:
-      typeof value.expiresAt === 'string' ? value.expiresAt : undefined,
+    did,
+    trustStatus: value.trusted ? 'TRUSTED' : 'UNTRUSTED',
+    reason: value.trusted ? undefined : 'not-trusted',
+    network,
+    evaluatedAt: asString(value.evaluatedAtTime),
+    expiresAt: asString(value.expiresAtTime),
+    ecsCredentials: Array.isArray(value.ecsCredentials)
+      ? value.ecsCredentials.flatMap(parseEcsCredential)
+      : [],
+    failedCredentialIds: presentations.flatMap(presentation =>
+      isRecord(presentation) &&
+      Array.isArray(presentation.unresolvableCredentialIds)
+        ? presentation.unresolvableCredentialIds.filter(
+            (id): id is string => typeof id === 'string',
+          )
+        : [],
+    ),
   };
 };
 
-const parseCredential = (value: unknown): VeranaTrustCredential | undefined => {
-  if (!isRecord(value)) {
-    return undefined;
+const fetchEcosystemDid = async (
+  network: VeranaNetwork,
+  ecosystemId: number,
+): Promise<string | undefined> => {
+  const response = await fetchWithTimeout(
+    `${network.indexerUrl}/v4/ecosystem/get/${ecosystemId}`,
+    {headers: {Accept: 'application/json'}},
+    RESOLVE_TIMEOUT_MS,
+  );
+  const body: unknown = response.ok ? await response.json() : undefined;
+  return isRecord(body) && isRecord(body.ecosystem)
+    ? asString(body.ecosystem.did)
+    : undefined;
+};
+
+const fromTrustedEcosystems = async (
+  network: VeranaNetwork,
+  credentials: Array<VeranaEcsCredential>,
+): Promise<boolean | undefined> => {
+  const trusted = network.trustedEcsEcosystemDids;
+  if (!trusted) return true;
+  const dids = await Promise.all(
+    credentials.map(credential =>
+      credential.ecosystemId === undefined
+        ? Promise.resolve(undefined)
+        : fetchEcosystemDid(network, credential.ecosystemId),
+    ),
+  );
+  if (dids.some(did => did === undefined)) return undefined;
+  return dids.every(did => did !== undefined && trusted.includes(did));
+};
+
+const queryNetwork = async (
+  network: VeranaNetwork,
+  did: string,
+): Promise<NetworkAnswer> => {
+  try {
+    const response = await fetchWithTimeout(
+      `${network.indexerUrl}/v4/verifiable-trust/resolve`,
+      {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          did,
+          participations: {states: ['ACTIVE', 'EXPIRED', 'REVOKED']},
+          presentations: {unresolvableCredentialIds: true},
+          ecsCredentials: true,
+        }),
+      },
+      RESOLVE_TIMEOUT_MS,
+    );
+    const body: unknown = await response.json().catch(() => undefined);
+    if (
+      response.status === 404 &&
+      isRecord(body) &&
+      body.error === 'DID not found'
+    ) {
+      return {
+        kind: 'untrusted',
+        resolution: unresolved(did, 'UNTRUSTED', 'not-registered', network),
+      };
+    }
+    const resolution = response.ok
+      ? parseResolveResponse(body, did, network)
+      : undefined;
+    if (!resolution) {
+      debug(`${network.id} answered ${response.status} for ${did}`);
+      return {kind: 'unanswered'};
+    }
+    if (resolution.trustStatus !== 'TRUSTED') {
+      return {kind: 'untrusted', resolution};
+    }
+
+    const ecosystemsTrusted = await fromTrustedEcosystems(
+      network,
+      resolution.ecsCredentials,
+    );
+    if (ecosystemsTrusted === undefined) return {kind: 'unanswered'};
+    return ecosystemsTrusted
+      ? {kind: 'trusted', resolution}
+      : {
+          kind: 'untrusted',
+          resolution: {
+            ...resolution,
+            trustStatus: 'UNTRUSTED',
+            reason: 'ecosystem-not-trusted',
+          },
+        };
+  } catch (error) {
+    debug(`${network.id} resolve failed for ${did}: ${error}`);
+    return {kind: 'unanswered'};
+  }
+};
+
+const settledVerdict = (
+  did: string,
+  answers: Array<NetworkAnswer>,
+): VeranaTrustResolution => {
+  if (answers.some(answer => answer.kind === 'unanswered')) {
+    return unresolved(did, 'UNVERIFIED');
+  }
+  const untrusted = answers.flatMap(answer =>
+    answer.kind === 'untrusted' ? [answer.resolution] : [],
+  );
+  return (
+    untrusted.find(resolution => resolution.reason !== 'not-registered') ??
+    untrusted[0] ??
+    unresolved(did, 'UNTRUSTED', 'not-registered')
+  );
+};
+
+export const resolveVeranaTrust = (
+  did: string,
+  networks: Array<VeranaNetwork> = VERANA_NETWORKS,
+): Promise<VeranaTrustResolution> => {
+  if (!isResolvableDid(did)) {
+    return Promise.resolve(unresolved(did, 'UNTRUSTED', 'no-did-document'));
+  }
+  if (!networks.length) {
+    return Promise.resolve(unresolved(did, 'UNVERIFIED'));
   }
 
-  return {
-    ecsType: typeof value.ecsType === 'string' ? value.ecsType : undefined,
-    result: typeof value.result === 'string' ? value.result : undefined,
-    format: typeof value.format === 'string' ? value.format : undefined,
-    issuedBy: typeof value.issuedBy === 'string' ? value.issuedBy : undefined,
-    presentedBy:
-      typeof value.presentedBy === 'string' ? value.presentedBy : undefined,
-    claims: isRecord(value.claims) ? value.claims : undefined,
-  };
+  return new Promise(resolve => {
+    const answers: Array<NetworkAnswer> = [];
+    networks.forEach(network =>
+      queryNetwork(network, did).then(answer => {
+        if (answer.kind === 'trusted') {
+          resolve(answer.resolution);
+          return;
+        }
+        answers.push(answer);
+        if (answers.length === networks.length) {
+          resolve(settledVerdict(did, answers));
+        }
+      }),
+    );
+  });
 };
 
 export const extractDidFromClientId = (
@@ -95,68 +264,4 @@ export const extractDidFromClientId = (
     ? clientId.slice('decentralized_identifier:'.length)
     : clientId;
   return did.startsWith('did:') ? did.split('#')[0] : undefined;
-};
-
-const fetchResolution = async (
-  did: string,
-  detail: 'summary' | 'full',
-  timeoutMs: number,
-): Promise<unknown> => {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(
-      `${VERANA_RESOLVER_URL}/v1/trust/resolve?did=${encodeURIComponent(
-        did,
-      )}&detail=${detail}`,
-      {
-        signal: controller.signal,
-      },
-    );
-    if (!response.ok) {
-      debug(`resolver returned ${response.status} for ${did}`);
-      return undefined;
-    }
-    return await response.json();
-  } catch (error) {
-    debug(`resolver call failed for ${did}: ${error}`);
-    return undefined;
-  } finally {
-    clearTimeout(timeout);
-  }
-};
-
-// Fast trust decision on detail=summary (a cached lookup on the resolver). Every outcome is
-// reported: TRUSTED/PARTIAL/UNTRUSTED as the resolver said, UNVERIFIED synthesized on any
-// non-200, network failure, timeout or malformed body. Rendering and gating live with the
-// consumers; this service reports, it does not filter. The heavier detail=full evaluation is
-// only fetched lazily by the detail screen, off the critical path.
-export const resolveVeranaTrust = async (
-  did: string,
-): Promise<VeranaTrustResolution> => {
-  const resolution = parseResolution(
-    await fetchResolution(did, 'summary', DECISION_TIMEOUT_MS),
-    did,
-  );
-  return resolution ?? {did, trustStatus: 'UNVERIFIED', production: true};
-};
-
-export const fetchVeranaTrustDetails = async (
-  did: string,
-): Promise<VeranaTrustDetails> => {
-  const value = await fetchResolution(did, 'full', DETAILS_TIMEOUT_MS);
-  const resolution = parseResolution(value, did);
-  if (resolution === undefined || !isRecord(value)) {
-    return {did, trustStatus: 'UNVERIFIED', production: true, credentials: []};
-  }
-
-  const credentials = Array.isArray(value.credentials)
-    ? value.credentials
-        .map(parseCredential)
-        .filter(
-          (credential): credential is VeranaTrustCredential =>
-            credential !== undefined,
-        )
-    : [];
-  return {...resolution, credentials};
 };

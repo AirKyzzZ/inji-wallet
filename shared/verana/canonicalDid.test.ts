@@ -1,14 +1,13 @@
 import {canonicalVeranaDid, didWebDocumentUrl} from './canonicalDid';
 
 const WEBVH =
-  'did:webvh:QmP6g7:demo-verifier-accredited.playground.testnet.verana.network';
-const WEB =
-  'did:web:demo-verifier-accredited.playground.testnet.verana.network';
+  'did:webvh:QmP6g7:demo-verifier-accredited.playground.devnet.verana.network';
+const WEB = 'did:web:demo-verifier-accredited.playground.devnet.verana.network';
 
 describe('didWebDocumentUrl', () => {
   it('maps a host-only did:web to the well-known document', () => {
     expect(didWebDocumentUrl(WEB)).toBe(
-      'https://demo-verifier-accredited.playground.testnet.verana.network/.well-known/did.json',
+      'https://demo-verifier-accredited.playground.devnet.verana.network/.well-known/did.json',
     );
   });
 

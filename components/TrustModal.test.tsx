@@ -1,5 +1,5 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {fireEvent, render} from '@testing-library/react-native';
 import {TrustModal} from './TrustModal';
 
 // Mock useTranslation hook
@@ -101,6 +101,41 @@ describe('TrustModal', () => {
     );
 
     expect(getByText('DemoCredential')).toBeTruthy();
+  });
+
+  it('labels the network and names the ecosystem of the accreditation', () => {
+    const {getByText} = render(
+      <TrustModal
+        {...baseProps}
+        consentStatus="idle"
+        verana={veranaTrust({
+          networkLabel: 'DEVNET',
+          accreditation: {granted: true, ecosystemName: 'Playground Demo'},
+          credentialName: 'DemoCredential',
+        })}
+      />,
+    );
+
+    expect(getByText('DEVNET')).toBeTruthy();
+    expect(
+      getByText(
+        'Test Issuer is an authorized issuer of DemoCredential in Playground Demo',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('offers a retry when the registry could not be reached', () => {
+    const retry = jest.fn();
+    const {getByText} = render(
+      <TrustModal
+        {...baseProps}
+        consentStatus="idle"
+        verana={veranaTrust({trustStatus: 'UNVERIFIED', blocked: true, retry})}
+      />,
+    );
+
+    fireEvent.press(getByText('Retry'));
+    expect(retry).toHaveBeenCalled();
   });
 
   it('matches snapshot in loading state', () => {

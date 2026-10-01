@@ -1,305 +1,215 @@
 import {
   checkVeranaAccreditation,
-  fetchPermissions,
-  isPermissionActive,
-  resetPermissionCache,
-  resolveAccreditation,
+  parseSchemaRef,
+  withinValidity,
 } from './veranaPermissions';
-import type {VeranaPermission} from './veranaPermissions';
+import {
+  ECOSYSTEM_DID,
+  ECOSYSTEM_DID_DOCUMENT,
+  ISSUER_DID,
+  TYPE_METADATA,
+  UNACCREDITED_DID,
+  VCT,
+  VTJSC,
+} from './__fixtures__/devnet';
+import {didLog, installFetch, Route} from './__fixtures__/fetch';
 
-const did = 'did:webvh:service.example';
-const schemaId = '5';
-const mockFetch = jest.fn();
+const INDEXER = 'https://idx.devnet.verana.network';
+const ECOSYSTEM_LOG =
+  'https://playground-demo.playground.devnet.verana.network/.well-known/did.jsonl';
 
-const wirePermission = (
-  overrides: Record<string, unknown> = {},
-): Record<string, unknown> => ({
-  id: '101',
-  did,
-  schema_id: schemaId,
-  type: 'ISSUER',
-  ...overrides,
+const participants = (did: string, role: string): Route => ({
+  body: {
+    participants:
+      did === ISSUER_DID && role === 'ISSUER'
+        ? [
+            {
+              id: 24,
+              did,
+              role,
+              schema_id: 8,
+              participant_state: 'ACTIVE',
+            },
+          ]
+        : [],
+  },
 });
 
-const jsonResponse = (body: unknown) => ({ok: true, json: async () => body});
+const participantUrl = (did: string, role: string) =>
+  `${INDEXER}/v4/participant/list?did=${encodeURIComponent(
+    did,
+  )}&role=${role}&schema_id=8&participant_state=ACTIVE`;
 
-describe('veranaPermissions', () => {
-  beforeEach(() => {
-    mockFetch.mockReset();
-    resetPermissionCache();
-    global.fetch = mockFetch as typeof fetch;
-  });
-
-  it('grants an active issuer permission and asks the VPR only for this DID', async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({permissions: [wirePermission()]}),
-    );
-
-    await expect(
-      checkVeranaAccreditation({did, schemaId, role: 'issuer'}),
-    ).resolves.toEqual({
-      granted: true,
-      reason: 'An active issuer permission covers this schema',
-    });
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining(
-        `/verana/perm/v1/find_with_did?did=${encodeURIComponent(
-          did,
-        )}&type=1&schema_id=${schemaId}`,
-      ),
-      expect.anything(),
-    );
-  });
-
-  it('asks for permission type 2 on a verifier check', async () => {
-    mockFetch.mockResolvedValue(jsonResponse({permissions: []}));
-
-    await checkVeranaAccreditation({did, schemaId, role: 'verifier'});
-
-    expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('&type=2&'),
-      expect.anything(),
-    );
-  });
-
-  it.each([
-    {
-      state: 'PENDING',
-      overrides: {vp_state: 'PENDING'},
-      reason: 'A issuer permission for this schema is still pending validation',
+const devnet = (overrides: Record<string, Route> = {}) =>
+  installFetch({
+    [VCT]: {body: TYPE_METADATA},
+    [TYPE_METADATA.relatedJsonSchemaCredentialId]: {body: VTJSC},
+    [ECOSYSTEM_LOG]: didLog(ECOSYSTEM_DID_DOCUMENT),
+    [`${INDEXER}/v4/credential-schema/get/8`]: {
+      body: {schema: {id: 8, ecosystem_id: 6}},
     },
-    {
-      state: 'TERMINATED',
-      overrides: {vp_state: 'TERMINATED'},
-      reason:
-        'A issuer permission exists for this schema but is no longer in force',
+    [`${INDEXER}/v4/ecosystem/get/6`]: {
+      body: {ecosystem: {id: 6, did: ECOSYSTEM_DID}},
     },
-    {
-      state: 'revoked',
-      overrides: {revoked: '2026-01-01T00:00:00Z'},
-      reason:
-        'A issuer permission exists for this schema but is no longer in force',
-    },
-    {
-      state: 'expired',
-      overrides: {effective_until: '2026-01-01T00:00:00Z'},
-      reason:
-        'A issuer permission exists for this schema but is no longer in force',
-    },
-  ])(
-    'holds a $state permission as not a grant',
-    async ({overrides, reason}) => {
-      mockFetch.mockResolvedValue(
-        jsonResponse({permissions: [wirePermission(overrides)]}),
-      );
-
-      await expect(
-        checkVeranaAccreditation({did, schemaId, role: 'issuer'}),
-      ).resolves.toEqual({granted: false, reason});
-    },
-  );
-
-  it('refuses definitively when the VPR holds no permission for the DID', async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({
-        permissions: [wirePermission({did: 'did:webvh:someone-else.example'})],
-      }),
-    );
-
-    await expect(
-      checkVeranaAccreditation({did, schemaId, role: 'issuer'}),
-    ).resolves.toEqual({
-      granted: false,
-      reason: 'No issuer permission for this schema',
-    });
-  });
-
-  it('does not let an issuer permission satisfy a verifier check', async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({permissions: [wirePermission()]}),
-    );
-
-    await expect(
-      checkVeranaAccreditation({did, schemaId, role: 'verifier'}),
-    ).resolves.toEqual({
-      granted: false,
-      reason: 'No verifier permission for this schema',
-    });
-  });
-
-  it.each([
-    {
-      failure: 'a network failure',
-      mock: () =>
-        mockFetch.mockRejectedValue(new TypeError('Network request failed')),
-    },
-    {
-      failure: 'a VPR error response',
-      mock: () => mockFetch.mockResolvedValue({ok: false, status: 500}),
-    },
-  ])(
-    'reports could-not-determine, never a refusal, on $failure',
-    async ({mock}) => {
-      mock();
-
-      const result = await checkVeranaAccreditation({
-        did,
-        schemaId,
-        role: 'issuer',
-      });
-      expect(result.granted).toBeUndefined();
-      expect(result.reason).toBe(
-        'The Verana registry could not be reached, so this permission could not be checked',
-      );
-    },
-  );
-
-  it('reports could-not-determine when the credential type matches no Verana schema', async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({
-        schemas: [
-          {id: '9', json_schema: JSON.stringify({title: 'SomethingElse'})},
+    [participantUrl(ISSUER_DID, 'ISSUER')]: participants(ISSUER_DID, 'ISSUER'),
+    [participantUrl(ISSUER_DID, 'VERIFIER')]: participants(
+      ISSUER_DID,
+      'VERIFIER',
+    ),
+    [participantUrl(UNACCREDITED_DID, 'ISSUER')]: participants(
+      UNACCREDITED_DID,
+      'ISSUER',
+    ),
+    [`${INDEXER}/v4/verifiable-trust/resolve`]: {
+      body: {
+        did: ECOSYSTEM_DID,
+        trusted: true,
+        ecsCredentials: [
+          {
+            ecsSchema: 'ServiceCredential',
+            credentialSubject: {name: 'Playground Demo'},
+          },
         ],
+      },
+    },
+    ...overrides,
+  });
+
+const originalFetch = global.fetch;
+afterEach(() => {
+  global.fetch = originalFetch;
+});
+
+describe('checkVeranaAccreditation', () => {
+  it('grants the accredited devnet issuer through the VTJSC chain', async () => {
+    devnet();
+
+    await expect(
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer', vct: VCT}),
+    ).resolves.toMatchObject({
+      granted: true,
+      credentialName: 'DemoCredential',
+      ecosystemName: 'Playground Demo',
+    });
+  });
+
+  it('refuses the unaccredited devnet issuer', async () => {
+    devnet();
+
+    await expect(
+      checkVeranaAccreditation({
+        did: UNACCREDITED_DID,
+        role: 'issuer',
+        vct: VCT,
       }),
-    );
-
-    const result = await checkVeranaAccreditation({
-      did,
-      vct: 'OpaqueServiceCredential',
-      role: 'issuer',
-    });
-    expect(result.granted).toBeUndefined();
-    expect(result.reason).toBe(
-      'This credential type could not be matched to a Verana schema, so the permission could not be checked',
-    );
+    ).resolves.toMatchObject({granted: false});
   });
 
-  it('resolves the schema through the vct type metadata and the schema credential', async () => {
-    const vct = 'https://issuer.example/vct/service-credential';
-    const vtjscId = 'https://issuer.example/credentials/schema';
-    mockFetch.mockImplementation((input: unknown) => {
-      const url = String(input);
-      if (url === vct) {
-        return Promise.resolve(
-          jsonResponse({relatedJsonSchemaCredentialId: vtjscId}),
-        );
-      }
-      if (url === vtjscId) {
-        return Promise.resolve(
-          jsonResponse({
-            credentialSubject: {jsonSchema: {$id: 'vpr:verana:vna/cs/v1/js/5'}},
-          }),
-        );
-      }
-      if (url.includes('/verana/perm/v1/')) {
-        return Promise.resolve(jsonResponse({permissions: [wirePermission()]}));
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+  it('does not let an issuer participant satisfy a verifier check', async () => {
+    devnet();
+
+    await expect(
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'verifier', vct: VCT}),
+    ).resolves.toMatchObject({granted: false});
+  });
+
+  it('refuses a VTJSC whose proof does not verify', async () => {
+    devnet({
+      [TYPE_METADATA.relatedJsonSchemaCredentialId]: {
+        body: {...VTJSC, validUntil: '2099-01-01T00:00:00.000Z'},
+      },
     });
 
     await expect(
-      checkVeranaAccreditation({did, vct, role: 'issuer'}),
-    ).resolves.toEqual({
-      granted: true,
-      reason: 'An active issuer permission covers this schema',
-    });
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer', vct: VCT}),
+    ).resolves.toMatchObject({granted: false});
   });
 
-  it('resolves the schema when the VTJSC carries only $ref, the live cast shape', async () => {
-    const vct = 'https://issuer.example/vct/service-credential';
-    const vtjscId = 'https://issuer.example/credentials/schema';
-    mockFetch.mockImplementation((input: unknown) => {
-      const url = String(input);
-      if (url === vct) {
-        return Promise.resolve(
-          jsonResponse({relatedJsonSchemaCredentialId: vtjscId}),
-        );
-      }
-      if (url === vtjscId) {
-        return Promise.resolve(
-          jsonResponse({
-            credentialSubject: {
-              jsonSchema: {$ref: 'vpr:verana:vna-testnet-1/cs/v1/js/253'},
-              id: 'vpr:verana:vna-testnet-1/cs/v1/js/253',
-            },
-          }),
-        );
-      }
-      if (url.includes('/verana/perm/v1/')) {
-        return Promise.resolve(
-          jsonResponse({permissions: [wirePermission({schema_id: '253'})]}),
-        );
-      }
-      return Promise.reject(new Error(`unexpected fetch: ${url}`));
+  it('refuses a VTJSC not issued by the ecosystem that owns the schema', async () => {
+    devnet({
+      [`${INDEXER}/v4/ecosystem/get/6`]: {
+        body: {ecosystem: {id: 6, did: 'did:webvh:QmOther:other.example'}},
+      },
     });
 
     await expect(
-      checkVeranaAccreditation({did, vct, role: 'issuer'}),
-    ).resolves.toEqual({
-      granted: true,
-      reason: 'An active issuer permission covers this schema',
-    });
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer', vct: VCT}),
+    ).resolves.toMatchObject({granted: false});
   });
 
-  it('refuses when the VPR has no such schema, rather than failing open', async () => {
-    mockFetch.mockResolvedValue({ok: false, status: 404});
+  it('refuses a credential type that names no schema credential', async () => {
+    devnet({[VCT]: {body: {vct: VCT, name: 'DemoCredential'}}});
 
     await expect(
-      checkVeranaAccreditation({did, schemaId, role: 'issuer'}),
-    ).resolves.toEqual({
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer', vct: VCT}),
+    ).resolves.toMatchObject({
       granted: false,
-      reason: 'No issuer permission for this schema',
+      credentialName: 'DemoCredential',
     });
+    await expect(
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer'}),
+    ).resolves.toMatchObject({granted: false});
   });
 
-  it('treats a full VPR page as truncated, so a grant beyond the cut cannot read as absent', async () => {
-    const page = Array.from({length: 1000}, (_, index) =>
-      wirePermission({id: `${index}`, did: 'did:webvh:filler.example'}),
-    );
-    mockFetch.mockResolvedValue(jsonResponse({permissions: page}));
-
-    await expect(fetchPermissions()).resolves.toBeUndefined();
-  });
-
-  it('holds a permission inactive outside its effective window', () => {
-    const at = new Date('2026-08-01T00:00:00Z');
-    const permission: VeranaPermission = {
-      id: '1',
-      did,
-      schemaId,
-      type: 'ISSUER',
-    };
-
-    expect(isPermissionActive(permission, at)).toBe(true);
-    expect(
-      isPermissionActive(
-        {...permission, effectiveFrom: '2027-01-01T00:00:00Z'},
-        at,
-      ),
-    ).toBe(false);
-    expect(
-      isPermissionActive(
-        {...permission, effectiveUntil: '2026-01-01T00:00:00Z'},
-        at,
-      ),
-    ).toBe(false);
-    expect(
-      isPermissionActive({...permission, slashed: '2026-07-01T00:00:00Z'}, at),
-    ).toBe(false);
-  });
-
-  it('keeps the Paradym result shape on resolveAccreditation', async () => {
-    mockFetch.mockResolvedValue(
-      jsonResponse({permissions: [wirePermission()]}),
-    );
+  it('cannot decide when the indexer does not answer', async () => {
+    devnet({
+      [participantUrl(ISSUER_DID, 'ISSUER')]: new Error('network'),
+    });
 
     await expect(
-      resolveAccreditation({did, schemaId, role: 'ISSUER'}),
-    ).resolves.toEqual({
-      role: 'ISSUER',
-      granted: true,
-      schemaId,
-      permissionId: '101',
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer', vct: VCT}),
+    ).resolves.toMatchObject({granted: undefined});
+  });
+
+  it('cannot decide when the ecosystem DID does not resolve', async () => {
+    devnet({[ECOSYSTEM_LOG]: {status: 503, body: ''}});
+
+    await expect(
+      checkVeranaAccreditation({did: ISSUER_DID, role: 'issuer', vct: VCT}),
+    ).resolves.toMatchObject({granted: undefined});
+  });
+});
+
+describe('withinValidity', () => {
+  const now = Date.parse('2026-10-01T00:00:00Z');
+
+  it('accepts a credential with no validity window', () => {
+    expect(withinValidity({}, now)).toBe(true);
+  });
+
+  it('accepts a credential inside its window', () => {
+    expect(
+      withinValidity(
+        {validFrom: '2026-01-01T00:00:00Z', validUntil: '2027-01-01T00:00:00Z'},
+        now,
+      ),
+    ).toBe(true);
+  });
+
+  it('refuses an expired, not yet valid, or unreadable window', () => {
+    expect(withinValidity({validUntil: '2026-09-01T00:00:00Z'}, now)).toBe(
+      false,
+    );
+    expect(withinValidity({validFrom: '2026-11-01T00:00:00Z'}, now)).toBe(
+      false,
+    );
+    expect(withinValidity({validUntil: 'soon'}, now)).toBe(false);
+    expect(withinValidity({validFrom: 1}, now)).toBe(false);
+  });
+});
+
+describe('parseSchemaRef', () => {
+  it('maps a schema reference onto a configured network', () => {
+    expect(parseSchemaRef('vpr:verana:vna-devnet-1:cs:8')).toMatchObject({
+      network: {id: 'vna-devnet-1', indexerUrl: INDEXER},
+      schemaId: '8',
     });
+  });
+
+  it('ignores unknown networks and other shapes', () => {
+    expect(parseSchemaRef('vpr:verana:vna-mainnet-9:cs:8')).toBeUndefined();
+    expect(parseSchemaRef('vpr:verana:vna-testnet-1/cs/v1/js/253')).toBe(
+      undefined,
+    );
   });
 });

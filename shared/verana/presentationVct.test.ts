@@ -1,7 +1,7 @@
 import {vctFromPresentationDefinition} from './presentationVct';
 
 const VCT =
-  'https://demo-issuer-accredited.playground.testnet.verana.network/oid4vc/vct/demo-credential';
+  'https://demo-issuer-accredited.playground.devnet.verana.network/oid4vc/vct/demo-credential';
 
 const definition = (fields: unknown[]) => ({
   id: 'demo-credential-presentation-exchange',
@@ -102,7 +102,7 @@ describe('vctFromPresentationDefinition', () => {
 
 describe('a filter that only survived as a pattern', () => {
   const vct =
-    'https://demo-issuer-accredited.playground.testnet.verana.network/oid4vc/vct/demo-credential';
+    'https://demo-issuer-accredited.playground.devnet.verana.network/oid4vc/vct/demo-credential';
   const escaped = vct.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
   const definitionWith = (filter: unknown) => ({

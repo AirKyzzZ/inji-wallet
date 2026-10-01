@@ -56,7 +56,7 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     fontSize: 11,
   },
-  testnetChip: {
+  networkChip: {
     borderColor: veranaCardColors.warnLine,
     flexShrink: 0,
     borderRadius: 6,
@@ -64,7 +64,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     paddingVertical: 1,
   },
-  testnetChipText: {
+  networkChipText: {
     color: veranaCardColors.warn,
     fontSize: 9,
     letterSpacing: 0.5,

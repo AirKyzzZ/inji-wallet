@@ -44,7 +44,7 @@ fileignoreconfig:
   - filename: shared/fileStorage.ts
     checksum: 2ba2721d9722cd9420ae26762316230f7dab1a0be45820cbda4d0ecae0edf957
   - filename: screens/Issuers/IssuersScreen.tsx
-    checksum: 710c29923aff8135fdae959b334dcc22ee1e92c8139943d5e988a85fee9446f6
+    checksum: cda1fdbd139e93ac2cac9032644c8c78b709ab6ecac549605d9aa14701713992
   - filename: screens/Home/MyVcs/GetIdInputModal.tsx
     checksum: 5c736ed79a372d0ffa7c02eb33d0dc06edbbb08d120978ff287f5f06cd6c7746
   - filename: shared/openId4VCI/Utils.ts
@@ -436,5 +436,23 @@ fileignoreconfig:
     checksum: 6871fad16ecb5f019f502b2f7f715bc2a7b646ee08026b321aa1f8ce071dccc1
   - filename: shared/hooks/useScreenHeight.ts
     checksum: e3f13e7181efc6e6ad5896102bac1309bd8147ba711ff71f64a600a0dffc1364
+  - filename: shared/verana/dataIntegrity.ts
+    checksum: bb91e333e2089c37c97d5b50ff804cbac5fea024a3fe314e80914a5d6aef1d5f
+  - filename: shared/verana/__fixtures__/devnet.ts
+    checksum: e6d93a13e77581687e73ff273a72be94906383906e618c362df7517d7cdb3d32
+  - filename: shared/verana/dataIntegrity.test.ts
+    checksum: 5e39632861724c2bcc2b3f7685b4e52b8c1e7604526db366f1bad7b4df4a9ff7
+  - filename: shared/verana/issuerDid.test.ts
+    checksum: 35a2842c184b725bec0de6b708e8fd9a8160c457448a64b40e3dce5df5115499
+  - filename: shared/verana/useVeranaTrust.ts
+    checksum: 31f5c7dab934f79155fd888b87a766adc308c93de73025379083b4acc0d2e55d
+  - filename: shared/verana/issuerDid.ts
+    checksum: 6eb822d8e7338e3b8969a4a24f3002d620fea2906aa942db8a1663bc8ae8bf9a
+  - filename: shared/verana/didDocument.ts
+    checksum: e9e33e861cbbcad7372cb2ce4c25b6c5875def7810fc6c2434318951cd09d25e
+  - filename: shared/verana/veranaTrustService.test.ts
+    checksum: 2eafc69d8e7949f9e2f632a536863d4e263c9d076e34e87e83ffa233bc33d577
+  - filename: shared/verana/x509.ts
+    checksum: cdb88c1680350216b06261f32adea027ea58c43836b62c04f0e5a6c55abb4a8c
     version: "1.0"
 

@@ -52,6 +52,10 @@ export function selectCredentialOfferCredentialIssuer(state: State) {
   return state.context.credentialOfferCredentialIssuer;
 }
 
+export function selectQrData(state: State) {
+  return state.context.qrData;
+}
+
 export function selectTxCodeDisplayDetails(state: State) {
   const context = state.context;
   return {

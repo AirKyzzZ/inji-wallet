@@ -1,142 +1,185 @@
 import {
   didFromSignedIssuerMetadata,
   resolveIssuerIdentity,
+  signedMetadataUrls,
   vctFromSignedIssuerMetadata,
+  verifyIssuerMetadata,
 } from './issuerDid';
+import {
+  CREDENTIAL_ISSUER,
+  ISSUER_DID,
+  ISSUER_DID_DOCUMENT,
+  SIGNED_METADATA,
+  VCT,
+} from './__fixtures__/devnet';
+import {didLog, installFetch} from './__fixtures__/fetch';
+
+const ISSUER_LOG =
+  'https://demo-issuer-accredited.playground.devnet.verana.network/.well-known/did.jsonl';
+const SPEC_METADATA_URL =
+  'https://demo-issuer-accredited.playground.devnet.verana.network/.well-known/openid-credential-issuer/oid4vci/issuer';
 
 const b64u = (value: object) =>
-  Buffer.from(JSON.stringify(value))
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
+  Buffer.from(JSON.stringify(value)).toString('base64url');
 
-const VCT = 'https://issuer.example/oid4vc/vct/demo-credential';
+const unsignedJwt = (header: object, payload: object) =>
+  `${b64u(header)}.${b64u(payload)}.c2ln`;
 
-const signedMetadata = (header: object, payload?: object) =>
-  `${b64u(header)}.${b64u(
-    payload ?? {
-      credential_issuer: 'https://issuer.example',
-      credential_configurations_supported: {'demo-credential': {vct: VCT}},
-    },
-  )}.sig`;
+const originalFetch = global.fetch;
+afterEach(() => {
+  global.fetch = originalFetch;
+});
 
 describe('didFromSignedIssuerMetadata', () => {
-  const did = 'did:webvh:QmExample:issuer.example';
+  it('reads the DID from the URI SAN of the x5c leaf', () => {
+    expect(didFromSignedIssuerMetadata(SIGNED_METADATA)).toBe(ISSUER_DID);
+  });
 
-  it('reads the DID from the kid of a signed metadata JWT', () => {
+  it('falls back to a DID kid when there is no x5c', () => {
     expect(
       didFromSignedIssuerMetadata(
-        signedMetadata({alg: 'ES256', kid: `${did}#key-1`}),
+        unsignedJwt({alg: 'ES256', kid: `${ISSUER_DID}#key-1`}, {}),
       ),
-    ).toBe(did);
+    ).toBe(ISSUER_DID);
   });
 
-  it('keeps a kid that carries no fragment', () => {
-    expect(
-      didFromSignedIssuerMetadata(signedMetadata({alg: 'ES256', kid: did})),
-    ).toBe(did);
-  });
-
-  it('ignores a kid that is not a DID', () => {
-    expect(
-      didFromSignedIssuerMetadata(
-        signedMetadata({alg: 'ES256', kid: 'https://issuer.example/keys/1'}),
-      ),
-    ).toBeUndefined();
-  });
-
-  it('ignores unsigned metadata', () => {
-    expect(
-      didFromSignedIssuerMetadata(JSON.stringify({credential_issuer: 'x'})),
-    ).toBeUndefined();
-  });
-
-  it('ignores malformed input rather than throwing', () => {
+  it('ignores unsigned and malformed metadata', () => {
+    expect(didFromSignedIssuerMetadata('{"credential_issuer":"x"}')).toBe(
+      undefined,
+    );
     expect(didFromSignedIssuerMetadata('a.b.c')).toBeUndefined();
-    expect(didFromSignedIssuerMetadata('')).toBeUndefined();
     expect(didFromSignedIssuerMetadata(undefined)).toBeUndefined();
   });
 });
 
 describe('vctFromSignedIssuerMetadata', () => {
+  const twoConfigurations = unsignedJwt(
+    {alg: 'ES256'},
+    {
+      credential_configurations_supported: {
+        a: {vct: 'https://issuer.example/vct/a'},
+        b: {vct: 'https://issuer.example/vct/b'},
+      },
+    },
+  );
+
   it('reads the vct of the only configuration', () => {
-    expect(
-      vctFromSignedIssuerMetadata(signedMetadata({alg: 'ES256'})),
-    ).toBe(VCT);
+    expect(vctFromSignedIssuerMetadata(SIGNED_METADATA)).toBe(VCT);
   });
 
-  it('refuses to guess when several configurations are offered', () => {
-    expect(
-      vctFromSignedIssuerMetadata(
-        signedMetadata(
-          {alg: 'ES256'},
-          {
-            credential_configurations_supported: {
-              a: {vct: 'https://issuer.example/vct/a'},
-              b: {vct: 'https://issuer.example/vct/b'},
-            },
-          },
+  it('takes the configuration the offer names', () => {
+    expect(vctFromSignedIssuerMetadata(twoConfigurations, ['b'])).toBe(
+      'https://issuer.example/vct/b',
+    );
+  });
+
+  it('refuses to guess between several configurations', () => {
+    expect(vctFromSignedIssuerMetadata(twoConfigurations)).toBeUndefined();
+  });
+});
+
+describe('signedMetadataUrls', () => {
+  it('inserts the well-known segment before the issuer path first', () => {
+    expect(signedMetadataUrls(`${CREDENTIAL_ISSUER}/`)).toEqual([
+      SPEC_METADATA_URL,
+      `${CREDENTIAL_ISSUER}/.well-known/openid-credential-issuer`,
+    ]);
+  });
+
+  it('asks a host-only issuer once', () => {
+    expect(signedMetadataUrls('https://issuer.example')).toEqual([
+      'https://issuer.example/.well-known/openid-credential-issuer',
+    ]);
+  });
+});
+
+describe('verifyIssuerMetadata', () => {
+  it('proves the issuer controls the DID its certificate names', async () => {
+    installFetch({[ISSUER_LOG]: didLog(ISSUER_DID_DOCUMENT)});
+
+    await expect(
+      verifyIssuerMetadata(SIGNED_METADATA, CREDENTIAL_ISSUER),
+    ).resolves.toEqual({did: ISSUER_DID, proof: 'verified'});
+  });
+
+  it('rejects metadata replayed by another credential issuer', async () => {
+    installFetch({[ISSUER_LOG]: didLog(ISSUER_DID_DOCUMENT)});
+
+    await expect(
+      verifyIssuerMetadata(SIGNED_METADATA, 'https://impostor.example/issuer'),
+    ).resolves.toEqual({did: ISSUER_DID, proof: 'invalid'});
+  });
+
+  it('rejects a certificate key the DID document does not list', async () => {
+    installFetch({
+      [ISSUER_LOG]: didLog({
+        ...ISSUER_DID_DOCUMENT,
+        assertionMethod: ISSUER_DID_DOCUMENT.assertionMethod.filter(
+          (id: string) => !id.endsWith('#openid4vc-development-issuer'),
         ),
-      ),
-    ).toBeUndefined();
+      }),
+    });
+
+    await expect(
+      verifyIssuerMetadata(SIGNED_METADATA, CREDENTIAL_ISSUER),
+    ).resolves.toEqual({did: ISSUER_DID, proof: 'invalid'});
   });
 
-  it('ignores metadata with no configurations', () => {
-    expect(
-      vctFromSignedIssuerMetadata(
-        signedMetadata({alg: 'ES256'}, {credential_issuer: 'x'}),
-      ),
-    ).toBeUndefined();
+  it('cannot decide when the DID document does not answer', async () => {
+    installFetch({[ISSUER_LOG]: new Error('network')});
+
+    await expect(
+      verifyIssuerMetadata(SIGNED_METADATA, CREDENTIAL_ISSUER),
+    ).resolves.toEqual({did: ISSUER_DID, proof: 'unavailable'});
   });
 });
 
 describe('resolveIssuerIdentity', () => {
-  const did = 'did:webvh:QmExample:issuer.example';
-  const originalFetch = global.fetch;
+  const OFFER_URI = 'https://issuer.example/offers/1';
+  const VTJSC_CONFIG =
+    'https://playground-demo.playground.devnet.verana.network/vt/schemas-8-jsc.json';
 
-  afterEach(() => {
-    global.fetch = originalFetch;
-  });
-
-  it('asks the issuer for signed metadata and returns its DID', async () => {
-    const fetchMock = jest.fn().mockResolvedValue({
-      ok: true,
-      text: async () => signedMetadata({alg: 'ES256', kid: `${did}#key-1`}),
+  it('reads the signed metadata, the DID proof and the offered vct', async () => {
+    const fetchMock = installFetch({
+      [SPEC_METADATA_URL]: {body: SIGNED_METADATA},
+      [ISSUER_LOG]: didLog(ISSUER_DID_DOCUMENT),
+      [OFFER_URI]: {body: {credential_configuration_ids: [VTJSC_CONFIG]}},
     });
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    await expect(resolveIssuerIdentity('https://issuer.example')).resolves.toEqual({did, vct: VCT});
-
-    const [url, init] = fetchMock.mock.calls[0];
-    expect(url).toBe(
-      'https://issuer.example/.well-known/openid-credential-issuer',
-    );
-    expect(init.headers.Accept).toBe('application/jwt');
-  });
-
-  it('returns undefined when the issuer does not sign its metadata', async () => {
-    global.fetch = jest.fn().mockResolvedValue({
-      ok: true,
-      text: async () => JSON.stringify({credential_issuer: 'x'}),
-    }) as unknown as typeof fetch;
 
     await expect(
-      resolveIssuerIdentity('https://issuer.example'),
-    ).resolves.toEqual({});
+      resolveIssuerIdentity(
+        CREDENTIAL_ISSUER,
+        `openid-credential-offer://?credential_offer_uri=${encodeURIComponent(
+          OFFER_URI,
+        )}`,
+      ),
+    ).resolves.toEqual({did: ISSUER_DID, proof: 'verified', vct: VCT});
+    expect(fetchMock.mock.calls[0]).toEqual([
+      SPEC_METADATA_URL,
+      expect.objectContaining({headers: {Accept: 'application/jwt'}}),
+    ]);
   });
 
-  it('returns undefined when the issuer is unreachable', async () => {
-    global.fetch = jest
-      .fn()
-      .mockRejectedValue(new Error('network')) as unknown as typeof fetch;
+  it('falls back to the metadata path under the issuer', async () => {
+    installFetch({
+      [`${CREDENTIAL_ISSUER}/.well-known/openid-credential-issuer`]: {
+        body: SIGNED_METADATA,
+      },
+      [ISSUER_LOG]: didLog(ISSUER_DID_DOCUMENT),
+    });
 
     await expect(
-      resolveIssuerIdentity('https://issuer.example'),
-    ).resolves.toEqual({});
+      resolveIssuerIdentity(CREDENTIAL_ISSUER),
+    ).resolves.toMatchObject({did: ISSUER_DID, proof: 'verified'});
   });
 
-  it('returns undefined without a host', async () => {
+  it('returns nothing for an issuer that does not sign its metadata', async () => {
+    installFetch({[SPEC_METADATA_URL]: {body: {credential_issuer: 'x'}}});
+
+    await expect(resolveIssuerIdentity(CREDENTIAL_ISSUER)).resolves.toEqual({});
+  });
+
+  it('returns nothing without an issuer', async () => {
     await expect(resolveIssuerIdentity(undefined)).resolves.toEqual({});
   });
 });

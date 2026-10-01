@@ -228,6 +228,51 @@ describe('openId4VCI Utils', () => {
       expect(result).toBeDefined();
       expect(result.format).toBe('jwt_vc');
     });
+
+    it('reads display and claims from OID4VCI 1.0 credential_metadata', () => {
+      const wellknown = {
+        credential_configurations_supported: {
+          DemoCredential: {
+            format: 'dc+sd-jwt',
+            credential_metadata: {
+              display: [{name: 'DemoCredential', locale: 'en'}],
+              claims: [
+                {path: ['demoId']},
+                {path: ['address', 'street'], display: [{name: 'Street'}]},
+              ],
+            },
+          },
+        },
+      };
+
+      const result = getMatchingCredentialIssuerMetadata(
+        wellknown,
+        'DemoCredential',
+      );
+
+      expect(result.display).toEqual([{name: 'DemoCredential', locale: 'en'}]);
+      expect(result.claims).toEqual({
+        demoId: {},
+        address: {street: {display: [{name: 'Street'}]}},
+      });
+    });
+
+    it('keeps draft 13 display and claims when both shapes are present', () => {
+      const wellknown = {
+        credential_configurations_supported: {
+          Both: {
+            display: [{name: 'Top'}],
+            claims: {given_name: {}},
+            credential_metadata: {display: [{name: 'Nested'}], claims: []},
+          },
+        },
+      };
+
+      const result = getMatchingCredentialIssuerMetadata(wellknown, 'Both');
+
+      expect(result.display).toEqual([{name: 'Top'}]);
+      expect(result.claims).toEqual({given_name: {}});
+    });
   });
 
   describe('selectCredentialRequestKey', () => {

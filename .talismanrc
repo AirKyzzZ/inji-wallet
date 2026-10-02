@@ -651,4 +651,28 @@ fileignoreconfig:
 - filename: screens/Issuers/__snapshots__/TransactionCodeScreen.test.tsx.snap
   allowed_patterns:
   - keyboardShouldPersistTaps
+- filename: shared/verana/dataIntegrity.ts
+  checksum: bb91e333e2089c37c97d5b50ff804cbac5fea024a3fe314e80914a5d6aef1d5f
+- filename: shared/verana/__fixtures__/devnetVerifier.ts
+  checksum: 9e41dcd6b3373980e32d6d22d7aa627df293ed08bbe77375738f8dc5bbf265b0
+- filename: shared/verana/__fixtures__/devnet.ts
+  checksum: e6d93a13e77581687e73ff273a72be94906383906e618c362df7517d7cdb3d32
+- filename: shared/verana/dataIntegrity.test.ts
+  checksum: 5e39632861724c2bcc2b3f7685b4e52b8c1e7604526db366f1bad7b4df4a9ff7
+- filename: shared/verana/issuerDid.ts
+  checksum: 8423ecbc6e61fca7354d36515ecef67f4aedb7dae5064e82b066fe357e6f1b72
+- filename: shared/verana/veranaTrustService.test.ts
+  checksum: 2eafc69d8e7949f9e2f632a536863d4e263c9d076e34e87e83ffa233bc33d577
+- filename: shared/verana/verifierDid.ts
+  checksum: 17dafe9e6c9b94157a00432853bef1afca5f2bdcbae9a4cf2320054a8403467d
+- filename: shared/verana/x509.ts
+  checksum: cdb88c1680350216b06261f32adea027ea58c43836b62c04f0e5a6c55abb4a8c
+- filename: shared/verana/useVeranaTrust.ts
+  checksum: 31f5c7dab934f79155fd888b87a766adc308c93de73025379083b4acc0d2e55d
+- filename: shared/verana/issuerDid.test.ts
+  checksum: 35a2842c184b725bec0de6b708e8fd9a8160c457448a64b40e3dce5df5115499
+- filename: shared/verana/verifierDid.test.ts
+  checksum: 11f50e5fed17dc7ae22374d1ba3ac25fd6d75051eb058d8353edf78d52af142e
+- filename: shared/verana/didDocument.ts
+  checksum: 19de39b57f731b8dda16b6a80a3cdffc4f79d020c0b0de262992dcf646ea9673
 version: "1.0"

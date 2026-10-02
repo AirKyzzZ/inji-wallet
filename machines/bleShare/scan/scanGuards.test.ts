@@ -72,6 +72,21 @@ describe('ScanGuards', () => {
       const event = {params: 'http://example.com'};
       expect(guards.isOnlineSharing({}, event)).toBe(false);
     });
+
+    it('accepts a spec-shaped request, which leaves the authority undefined', () => {
+      const event = {
+        params:
+          'openid4vp://?client_id=x509_hash%3Aabc&request_uri=https%3A%2F%2Fverifier.example%2Foid4vp%2Frequest',
+      };
+      expect(guards.isOnlineSharing({}, event)).toBe(true);
+    });
+
+    it('rejects a credential offer and an empty scan', () => {
+      expect(
+        guards.isOnlineSharing({}, {params: 'openid-credential-offer://?x=1'}),
+      ).toBe(false);
+      expect(guards.isOnlineSharing({}, {params: ''})).toBe(false);
+    });
   });
 
   describe('uptoAndroid11', () => {

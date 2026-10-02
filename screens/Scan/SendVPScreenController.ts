@@ -32,6 +32,7 @@ import {
   selectshowTrustConsentModal,
   selectVCsMatchingAuthRequest,
   selectVerifiableCredentialsData,
+  selectVerifierCertificateChain,
   selectVerifierClientId,
   selectVerifierLogoInTrustModal,
   selectVerifierNameInTrustModal,
@@ -248,6 +249,10 @@ export function useSendVPScreen(props) {
       selectVerifierLogoInTrustModal,
     ),
     verifierClientId: useSelector(openID4VPService, selectVerifierClientId),
+    verifierCertificateChain: useSelector(
+      openID4VPService,
+      selectVerifierCertificateChain,
+    ),
     verifierRequestedVct: useSelector(
       openID4VPService,
       selectVerifierRequestedVct,

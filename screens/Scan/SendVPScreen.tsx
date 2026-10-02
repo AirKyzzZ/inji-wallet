@@ -41,15 +41,42 @@ import {useScanScreen} from './ScanScreenController';
 import {useOvpErrorModal} from '../../shared/hooks/useOvpErrorModal';
 import {TrustModalVerifier} from '../../components/TrustModalVerifier';
 import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
+import {
+  resolveVerifierIdentity,
+  VerifierIdentity,
+} from '../../shared/verana/verifierDid';
 
 export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
   const {t} = useTranslation('SendVPScreen');
   const controller = useSendVPScreen(props);
   const scanScreenController = useScanScreen();
+  const certificateChain = controller.verifierCertificateChain;
+  const identityKey = `${controller.verifierClientId}|${certificateChain?.[0]}`;
+  const [resolvedIdentity, setResolvedIdentity] = useState<{
+    key: string;
+    identity: VerifierIdentity;
+  }>();
+  const verifierIdentity =
+    resolvedIdentity?.key === identityKey
+      ? resolvedIdentity.identity
+      : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    resolveVerifierIdentity(controller.verifierClientId, certificateChain).then(
+      identity =>
+        !cancelled && setResolvedIdentity({key: identityKey, identity}),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [controller.verifierClientId, certificateChain, identityKey]);
+
   const verana = useVeranaTrust({
-    clientId: controller.verifierClientId,
+    clientId: verifierIdentity?.did ?? controller.verifierClientId,
     role: 'verifier',
     vct: controller.verifierRequestedVct,
+    didProof: verifierIdentity?.proof,
+    pending: Boolean(certificateChain?.length) && !verifierIdentity,
   });
 
   const [errorModal, resetErrorModal] = useOvpErrorModal({

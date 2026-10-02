@@ -16,6 +16,7 @@ export type DidDocument = {
   id: string;
   verificationMethod: Array<VerificationMethod>;
   assertionMethod: Array<string | VerificationMethod>;
+  authentication: Array<string | VerificationMethod>;
 };
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
@@ -52,6 +53,18 @@ const toVerificationMethod = (
   };
 };
 
+const relationship = (
+  did: string,
+  value: unknown,
+): Array<string | VerificationMethod> =>
+  Array.isArray(value)
+    ? value.flatMap(entry =>
+        typeof entry === 'string'
+          ? [absoluteId(did, entry)]
+          : toVerificationMethod(did, entry) ?? [],
+      )
+    : [];
+
 export const parseDidDocument = (
   did: string,
   value: unknown,
@@ -62,24 +75,31 @@ export const parseDidDocument = (
         .map(method => toVerificationMethod(did, method))
         .filter((method): method is VerificationMethod => Boolean(method))
     : [];
-  const assertionMethod = Array.isArray(value.assertionMethod)
-    ? value.assertionMethod.flatMap(entry =>
-        typeof entry === 'string'
-          ? [absoluteId(did, entry)]
-          : toVerificationMethod(did, entry) ?? [],
-      )
-    : [];
-  return {id: did, verificationMethod: methods, assertionMethod};
+  return {
+    id: did,
+    verificationMethod: methods,
+    assertionMethod: relationship(did, value.assertionMethod),
+    authentication: relationship(did, value.authentication),
+  };
 };
 
-export const assertionMethods = (
+const dereference = (
   document: DidDocument,
+  entries: Array<string | VerificationMethod>,
 ): Array<VerificationMethod> =>
-  document.assertionMethod.flatMap(entry =>
+  entries.flatMap(entry =>
     typeof entry === 'string'
       ? document.verificationMethod.filter(method => method.id === entry)
       : [entry],
   );
+
+export const assertionMethods = (
+  document: DidDocument,
+): Array<VerificationMethod> => dereference(document, document.assertionMethod);
+
+export const authenticationMethods = (
+  document: DidDocument,
+): Array<VerificationMethod> => dereference(document, document.authentication);
 
 const lastLogState = (log: string): unknown => {
   const lines = log.split('\n').filter(line => line.trim());

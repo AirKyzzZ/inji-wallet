@@ -10,7 +10,7 @@ import {
   resolveDidDocument,
   VerificationMethod,
 } from './didDocument';
-import {readLeafCertificate} from './x509';
+import {CertificateKey, readLeafCertificate} from './x509';
 
 const debug = veranaLog('issuerDid');
 
@@ -150,16 +150,22 @@ const verifyWith = (
   return false;
 };
 
+export const methodWithCertificateKey = (
+  methods: Array<VerificationMethod>,
+  certificate: CertificateKey,
+): VerificationMethod | undefined =>
+  methods.find(method => {
+    const point = p256Point(method.publicKeyJwk);
+    return point && sameBytes(point, certificate.p256PublicKey);
+  });
+
 const signingMethod = (
   metadata: SignedMetadata,
   document: DidDocument,
 ): VerificationMethod | undefined => {
   const certificate = leafCertificate(metadata.header);
   if (certificate) {
-    return assertionMethods(document).find(method => {
-      const point = p256Point(method.publicKeyJwk);
-      return point && sameBytes(point, certificate.p256PublicKey);
-    });
+    return methodWithCertificateKey(assertionMethods(document), certificate);
   }
   return assertionMethods(document).find(
     method => method.id === metadata.header.kid,

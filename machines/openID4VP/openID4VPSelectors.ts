@@ -150,6 +150,10 @@ export function selectVerifierClientId(state: State) {
   return state.context.authenticationResponse?.['client_id'];
 }
 
+export function selectVerifierCertificateChain(state: State) {
+  return state.context.authenticationResponse?.['client_certificate_chain'];
+}
+
 export function selectVerifierRequestedVct(state: State) {
   // inji-openid4vp hands back the parsed AuthorizationRequest, which names this field
   // `presentationDefinition`, while the wire format spells it with an underscore. Reading only

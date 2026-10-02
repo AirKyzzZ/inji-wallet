@@ -32,18 +32,19 @@ describe('defaultWalletConfig', () => {
     });
   });
 
-  it('supports redirect_uri, decentralized_identifier and pre-registered client_id prefixes', () => {
+  it('supports redirect_uri, decentralized_identifier, pre-registered and x509_hash client_id prefixes', () => {
     expect(defaultWalletConfig.client_id_prefixes_supported).toEqual([
       'redirect_uri',
       'decentralized_identifier',
       'pre-registered',
+      'x509_hash',
     ]);
   });
 
-  it('supports EdDSA for request object signing', () => {
+  it('supports EdDSA, ES256 and ES384 for request object signing', () => {
     expect(
       defaultWalletConfig.request_object_signing_alg_values_supported,
-    ).toEqual(['EdDSA']);
+    ).toEqual(['EdDSA', 'ES256', 'ES384']);
   });
 
   it('supports ECDH-ES for authorization encryption alg', () => {
@@ -52,10 +53,10 @@ describe('defaultWalletConfig', () => {
     ).toEqual(['ECDH-ES']);
   });
 
-  it('supports A256GCM for authorization encryption enc', () => {
+  it('supports A256GCM and A128GCM for authorization encryption enc', () => {
     expect(
       defaultWalletConfig.authorization_encryption_enc_values_supported,
-    ).toEqual(['A256GCM']);
+    ).toEqual(['A256GCM', 'A128GCM']);
   });
 
   it('has presentation_definition_uri_supported set to true', () => {

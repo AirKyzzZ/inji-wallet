@@ -35,6 +35,11 @@ import {QrScanner} from '../../components/QrScanner';
 import {AUTH_ROUTES} from '../../routes/routesConstants';
 import {TransactionCodeModal} from './TransactionCodeScreen';
 import {TrustModal} from '../../components/TrustModal';
+import {
+  IssuerIdentity,
+  resolveIssuerIdentity,
+} from '../../shared/verana/issuerDid';
+import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
 
 import {AuthorizationType} from '../../shared/constants';
 import {useTimer} from '../../shared/hooks/UseTimer';
@@ -63,6 +68,40 @@ export const IssuersScreen: React.FC<
     useTimer({initialValue: 5});
 
   const isVerificationFailed = controller.verificationErrorMessage !== '';
+
+  const issuerHost =
+    controller.credentialOfferCredentialIssuer ||
+    controller.selectedIssuer?.credential_issuer_host;
+  const credentialOffer = controller.credentialOfferCredentialIssuer
+    ? controller.credentialOffer
+    : undefined;
+  const identityKey = `${issuerHost}|${credentialOffer}`;
+  const [resolvedIdentity, setResolvedIdentity] = useState<{
+    key: string;
+    identity: IssuerIdentity;
+  }>();
+  const issuerIdentity =
+    resolvedIdentity?.key === identityKey
+      ? resolvedIdentity.identity
+      : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    resolveIssuerIdentity(issuerHost, credentialOffer).then(
+      identity =>
+        !cancelled && setResolvedIdentity({key: identityKey, identity}),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [issuerHost, credentialOffer, identityKey]);
+
+  const verana = useVeranaTrust({
+    clientId: issuerIdentity?.did,
+    role: 'issuer',
+    vct: issuerIdentity?.vct,
+    didProof: issuerIdentity?.proof,
+    pending: Boolean(issuerHost) && !issuerIdentity,
+  });
 
   const translationKey = `errors.verificationFailed.${controller.verificationErrorMessage}`;
 
@@ -430,6 +469,7 @@ export const IssuersScreen: React.FC<
         onConfirm={controller.ON_CONSENT_GIVEN}
         consentStatus={controller.trustedIssuerConsentStatus}
         onCancel={controller.CANCEL}
+        verana={verana}
       />
     );
   }

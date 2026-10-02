@@ -529,33 +529,14 @@ export const appMachine = model.createMachine(
           }
         };
 
-        const blurHandler = () => callback({type: 'INACTIVE'});
-        const focusHandler = () => callback({type: 'ACTIVE'});
-
+        // Android blur/focus also fire for system dialogs such as the biometric prompt, which restarted the deep-link flow mid-prompt.
         const changeEventSubscription = AppState.addEventListener(
           'change',
           changeHandler,
         );
 
-        let blurEventSubscription, focusEventSubscription;
-
-        if (isAndroid()) {
-          blurEventSubscription = AppState.addEventListener(
-            'blur',
-            blurHandler,
-          );
-          focusEventSubscription = AppState.addEventListener(
-            'focus',
-            focusHandler,
-          );
-        }
-
         return () => {
           changeEventSubscription.remove();
-          if (isAndroid()) {
-            blurEventSubscription.remove();
-            focusEventSubscription.remove();
-          }
         };
       },
 

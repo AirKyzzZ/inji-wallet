@@ -79,10 +79,14 @@
                 <data
                     android:host="wla-auth"
                     android:scheme="io.mosip.residentapp.inji" />
+            </intent-filter>
 
-                <data
-                        android:scheme="openid4vp"
-                        android:host="authorize" />
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="openid4vp" />
             </intent-filter>
 
             <!--

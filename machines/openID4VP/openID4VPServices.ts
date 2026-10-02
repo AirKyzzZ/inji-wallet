@@ -22,21 +22,8 @@ export const openID4VPServices = () => {
       );
     },
 
-    isVerifierTrusted: (context: any) => async () => {
-      if (context.flowType === VCShareFlowType.OPENID4VP_AUTHORIZATION)
-        return true;
-      const {RNSecureKeystoreModule} = NativeModules;
-      const verifier = context.authenticationResponse?.client_id;
-      try {
-        return await RNSecureKeystoreModule.hasAlias(getVerifierKey(verifier));
-      } catch (error) {
-        console.error(
-          `Error while checking verifier client ID in trusted verifiers:`,
-          error,
-        );
-        return false;
-      }
-    },
+    isVerifierTrusted: (context: any) => async () =>
+      context.flowType === VCShareFlowType.OPENID4VP_AUTHORIZATION,
 
     storeTrustedVerifier: (context: any) => async () => {
       const {RNSecureKeystoreModule} = NativeModules;

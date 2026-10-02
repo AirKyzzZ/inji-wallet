@@ -8,6 +8,10 @@ import {
 } from '../VerifiableCredential/VCMetaMachine/vc';
 import {VCShareFlowType} from '../../shared/Utils';
 import i18n from '../../i18n';
+import {
+  vctFromDcqlQuery,
+  vctFromPresentationDefinition,
+} from '../../shared/verana/presentationVct';
 
 type State = StateFrom<typeof openID4VPMachine>;
 
@@ -153,6 +157,25 @@ export function selectVerifierNameInTrustModal(state: State) {
 
 export function selectVerifierLogoInTrustModal(state: State) {
   return state.context.authenticationResponse['client_metadata']?.['logo_uri'];
+}
+
+export function selectVerifierClientId(state: State) {
+  return state.context.authenticationResponse?.['client_id'];
+}
+
+export function selectVerifierCertificateChain(state: State) {
+  return state.context.authenticationResponse?.['client_certificate_chain'];
+}
+
+export function selectVerifierRequestedVct(state: State) {
+  const response = state.context.authenticationResponse;
+  return (
+    vctFromDcqlQuery(response?.['dcql_query']) ??
+    vctFromPresentationDefinition(
+      response?.['presentationDefinition'] ??
+        response?.['presentation_definition'],
+    )
+  );
 }
 
 export function selectIsAuthorization(state: State) {

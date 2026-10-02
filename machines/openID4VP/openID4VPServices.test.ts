@@ -123,18 +123,7 @@ describe('openID4VPServices', () => {
     expect(result).toBe(true);
   });
 
-  it('isVerifierTrusted checks keystore for non-AUTHORIZATION flow', async () => {
-    const context = {
-      flowType: 'openid4vp',
-      authenticationResponse: {client_id: 'verifier1'},
-    };
-    const fn = services.isVerifierTrusted(context);
-    const result = await fn();
-    expect(result).toBe(true);
-  });
-
-  it('isVerifierTrusted returns false on keystore error', async () => {
-    mockHasAliasVP.mockRejectedValueOnce(new Error('fail'));
+  it('isVerifierTrusted asks again for every other flow, even for a stored verifier', async () => {
     const context = {
       flowType: 'openid4vp',
       authenticationResponse: {client_id: 'verifier1'},
@@ -142,6 +131,7 @@ describe('openID4VPServices', () => {
     const fn = services.isVerifierTrusted(context);
     const result = await fn();
     expect(result).toBe(false);
+    expect(mockHasAliasVP).not.toHaveBeenCalled();
   });
 
   it('storeTrustedVerifier stores verifier data', async () => {

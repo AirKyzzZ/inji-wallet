@@ -5,7 +5,10 @@ import {useTranslation} from 'react-i18next';
 import {Theme} from '../../components/ui/styleUtils';
 import {selectIsCancelling} from '../../machines/bleShare/commonSelectors';
 import {ScanEvents} from '../../machines/bleShare/scan/scanMachine';
-import {selectFlowType, selectIsSendingVPError,} from '../../machines/bleShare/scan/scanSelectors';
+import {
+  selectFlowType,
+  selectIsSendingVPError,
+} from '../../machines/bleShare/scan/scanSelectors';
 import {
   selectAreAllVCsChecked,
   selectCredentials,
@@ -29,9 +32,12 @@ import {
   selectShowConfirmationPopup,
   selectshowTrustConsentModal,
   selectVerifiableCredentialsData,
+  selectVerifierCertificateChain,
+  selectVerifierClientId,
   selectVerifierLogoInTrustModal,
   selectVerifierNameInTrustModal,
   selectVerifierNameInVPSharing,
+  selectVerifierRequestedVct,
   selectVPRequest,
 } from '../../machines/openID4VP/openID4VPSelectors';
 import {OpenID4VPEvents} from '../../machines/openID4VP/openID4VPMachine';
@@ -45,8 +51,8 @@ import {VPShareOverlayProps} from '../Scan/VPShareOverlay';
 import {ActivityLogEvents} from '../../machines/activityLog';
 import {VPShareActivityLog} from '../../components/VPShareActivityLogEvent';
 import {isIOS} from '../../shared/constants';
-import {getFaceAttribute,} from '../../components/VC/common/VCUtils';
-import {VC,} from '../../machines/VerifiableCredential/VCMetaMachine/vc';
+import {getFaceAttribute} from '../../components/VC/common/VCUtils';
+import {VC} from '../../machines/VerifiableCredential/VCMetaMachine/vc';
 import {isDcqlFlow} from '../../shared/openID4VP/OpenID4VPHelper';
 
 type MyVcsTabNavigation = NavigationProp<RootRouteProps>;
@@ -236,6 +242,15 @@ export function useSendVPScreen(props) {
     verifierLogoInTrustModal: useSelector(
       openID4VPService,
       selectVerifierLogoInTrustModal,
+    ),
+    verifierClientId: useSelector(openID4VPService, selectVerifierClientId),
+    verifierCertificateChain: useSelector(
+      openID4VPService,
+      selectVerifierCertificateChain,
+    ),
+    verifierRequestedVct: useSelector(
+      openID4VPService,
+      selectVerifierRequestedVct,
     ),
     showConfirmationPopup,
     isSelectingVCs,

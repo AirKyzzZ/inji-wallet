@@ -675,4 +675,6 @@ fileignoreconfig:
   checksum: 11f50e5fed17dc7ae22374d1ba3ac25fd6d75051eb058d8353edf78d52af142e
 - filename: shared/verana/didDocument.ts
   checksum: 19de39b57f731b8dda16b6a80a3cdffc4f79d020c0b0de262992dcf646ea9673
+- filename: screens/openid4vp/SendVPScreen.tsx
+  checksum: 8798bb425f511dac4f146140dddcb4bc9e586472a34668ed0ed836ebe3ee4900
 version: "1.0"

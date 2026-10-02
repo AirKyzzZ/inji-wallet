@@ -39,6 +39,11 @@ import {SendVPActions} from '../../components/openid4vp/SendVPActions';
 import {SendVPOverlays} from '../../components/openid4vp/overlay/SendVPOverlays';
 import {SendVPError} from '../../components/openid4vp/SendVPError';
 import {DeeplinkBanner} from '../../components/DeeplinkBanner';
+import {useVeranaTrust} from '../../shared/verana/useVeranaTrust';
+import {
+  resolveVerifierIdentity,
+  VerifierIdentity,
+} from '../../shared/verana/verifierDid';
 
 export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
   const {t} = useTranslation('SendVPScreen');
@@ -49,6 +54,35 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
   const insets = useSafeAreaInsets();
 
   const {appService} = useContext(GlobalContext);
+
+  const certificateChain = controller.verifierCertificateChain;
+  const identityKey = `${controller.verifierClientId}|${certificateChain?.[0]}`;
+  const [resolvedIdentity, setResolvedIdentity] = useState<{
+    key: string;
+    identity: VerifierIdentity;
+  }>();
+  const verifierIdentity =
+    resolvedIdentity?.key === identityKey
+      ? resolvedIdentity.identity
+      : undefined;
+  useEffect(() => {
+    let cancelled = false;
+    resolveVerifierIdentity(controller.verifierClientId, certificateChain).then(
+      identity =>
+        !cancelled && setResolvedIdentity({key: identityKey, identity}),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [controller.verifierClientId, certificateChain, identityKey]);
+
+  const verana = useVeranaTrust({
+    clientId: verifierIdentity?.did ?? controller.verifierClientId,
+    role: 'verifier',
+    vct: controller.verifierRequestedVct,
+    didProof: verifierIdentity?.proof,
+    pending: Boolean(certificateChain?.length) && !verifierIdentity,
+  });
 
   useEffect(() => {
     sendImpressionEvent(
@@ -171,6 +205,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
           onConfirm={controller.VERIFIER_TRUST_CONSENT_GIVEN}
           onCancel={controller.CANCEL}
           flowType={'verifier'}
+          verana={verana}
         />
         <SendVPLoadingState
           isAuthorizationFlow={controller.isAuthorizationFlow}
@@ -238,6 +273,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
           onConfirm={controller.VERIFIER_TRUST_CONSENT_GIVEN}
           onCancel={controller.CANCEL}
           flowType={'verifier'}
+          verana={verana}
         />
       }
       {controller.matchingVcsResult?.success && (
@@ -268,7 +304,7 @@ export const SendVPScreen: React.FC<ScanLayoutProps> = props => {
               isDcqlFlow={controller.isDcqlFlow}
               isCancelling={controller.isCancelling}
               isAuthorizationFlow={controller.isAuthorizationFlow}
-              disableShareButton={disableShareButton}
+              disableShareButton={disableShareButton || verana.blocked}
               onShare={handleVPShare}
               onReject={handleRejectButtonEvent}
               consentAndShareLabel={t('consentAndShare')}

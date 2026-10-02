@@ -677,4 +677,6 @@ fileignoreconfig:
   checksum: 19de39b57f731b8dda16b6a80a3cdffc4f79d020c0b0de262992dcf646ea9673
 - filename: screens/openid4vp/SendVPScreen.tsx
   checksum: 8798bb425f511dac4f146140dddcb4bc9e586472a34668ed0ed836ebe3ee4900
+- filename: screens/Settings/AboutInji.tsx
+  checksum: 78d1cbf3b7aae85991400be63524dda5c76b3dabbde869f155040902b2186c20
 version: "1.0"

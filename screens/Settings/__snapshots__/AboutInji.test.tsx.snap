@@ -288,6 +288,127 @@ exports[`AboutInji should match snapshot 1`] = `
             </Text>
           </View>
         </View>
+        <View
+          style={
+            [
+              {
+                "alignItems": undefined,
+                "flexDirection": "column",
+                "justifyContent": undefined,
+              },
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              {
+                "marginTop": 7,
+                "maxWidth": 705,
+                "minHeight": 133.4,
+              },
+              null,
+              null,
+            ]
+          }
+        >
+          <Text
+            style={
+              [
+                {
+                  "color": "#000000",
+                  "fontSize": 16,
+                  "lineHeight": 18,
+                },
+                {
+                  "fontFamily": "Montserrat_600SemiBold",
+                  "fontSize": 15,
+                },
+                null,
+                {
+                  "textAlign": "left",
+                },
+                null,
+                null,
+                {
+                  "color": "#000000",
+                  "fontSize": 18,
+                  "lineHeight": 18,
+                  "margin": 7,
+                  "maxWidth": 150,
+                  "paddingTop": 10,
+                },
+              ]
+            }
+          >
+            Verana networks
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#000000",
+                  "fontSize": 16,
+                  "lineHeight": 18,
+                },
+                {
+                  "fontFamily": "Montserrat_400Regular",
+                  "fontSize": 14,
+                },
+                null,
+                {
+                  "textAlign": "left",
+                },
+                null,
+                null,
+                {
+                  "color": "#000000",
+                  "fontSize": 18,
+                  "lineHeight": 18,
+                  "margin": 7,
+                  "maxWidth": 150,
+                  "paddingTop": 10,
+                },
+              ]
+            }
+          >
+            Devnet (vna-devnet-1): https://idx.devnet.verana.network
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#000000",
+                  "fontSize": 16,
+                  "lineHeight": 18,
+                },
+                {
+                  "fontFamily": "Montserrat_400Regular",
+                  "fontSize": 14,
+                },
+                null,
+                {
+                  "textAlign": "left",
+                },
+                null,
+                null,
+                {
+                  "color": "#000000",
+                  "fontSize": 18,
+                  "lineHeight": 18,
+                  "margin": 7,
+                  "maxWidth": 150,
+                  "paddingTop": 10,
+                },
+              ]
+            }
+          >
+            Testnet (vna-testnet-1): https://idx.testnet.verana.network
+          </Text>
+        </View>
       </View>
       <View
         style={
@@ -835,6 +956,127 @@ exports[`AboutInji should match snapshot without appId 1`] = `
               clickHere
             </Text>
           </View>
+        </View>
+        <View
+          style={
+            [
+              {
+                "alignItems": undefined,
+                "flexDirection": "column",
+                "justifyContent": undefined,
+              },
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              null,
+              {
+                "marginTop": 7,
+                "maxWidth": 705,
+                "minHeight": 133.4,
+              },
+              null,
+              null,
+            ]
+          }
+        >
+          <Text
+            style={
+              [
+                {
+                  "color": "#000000",
+                  "fontSize": 16,
+                  "lineHeight": 18,
+                },
+                {
+                  "fontFamily": "Montserrat_600SemiBold",
+                  "fontSize": 15,
+                },
+                null,
+                {
+                  "textAlign": "left",
+                },
+                null,
+                null,
+                {
+                  "color": "#000000",
+                  "fontSize": 18,
+                  "lineHeight": 18,
+                  "margin": 7,
+                  "maxWidth": 150,
+                  "paddingTop": 10,
+                },
+              ]
+            }
+          >
+            Verana networks
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#000000",
+                  "fontSize": 16,
+                  "lineHeight": 18,
+                },
+                {
+                  "fontFamily": "Montserrat_400Regular",
+                  "fontSize": 14,
+                },
+                null,
+                {
+                  "textAlign": "left",
+                },
+                null,
+                null,
+                {
+                  "color": "#000000",
+                  "fontSize": 18,
+                  "lineHeight": 18,
+                  "margin": 7,
+                  "maxWidth": 150,
+                  "paddingTop": 10,
+                },
+              ]
+            }
+          >
+            Devnet (vna-devnet-1): https://idx.devnet.verana.network
+          </Text>
+          <Text
+            style={
+              [
+                {
+                  "color": "#000000",
+                  "fontSize": 16,
+                  "lineHeight": 18,
+                },
+                {
+                  "fontFamily": "Montserrat_400Regular",
+                  "fontSize": 14,
+                },
+                null,
+                {
+                  "textAlign": "left",
+                },
+                null,
+                null,
+                {
+                  "color": "#000000",
+                  "fontSize": 18,
+                  "lineHeight": 18,
+                  "margin": 7,
+                  "maxWidth": 150,
+                  "paddingTop": 10,
+                },
+              ]
+            }
+          >
+            Testnet (vna-testnet-1): https://idx.testnet.verana.network
+          </Text>
         </View>
       </View>
       <View

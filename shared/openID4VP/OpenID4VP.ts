@@ -255,7 +255,12 @@ class OpenID4VP {
     const isDcqlRequestFlow = isDcqlFlow(vpRequest);
     Object.entries(selectedVCs).forEach(([credentialRequestId, vcsArray]) => {
       updatedSelectedVCs[credentialRequestId] = vcsArray.map(credential => {
-        const credentialFormat = credential.vcMetadata.format;
+        const storedFormat = credential.vcMetadata.format;
+        // PEX rejects a dc+sd-jwt submission outright, so Presentation Exchange answers in vc+sd-jwt.
+        const credentialFormat =
+          !isDcqlRequestFlow && storedFormat === VCFormat.dc_sd_jwt
+            ? VCFormat.vc_sd_jwt
+            : storedFormat;
         return {
           format: credentialFormat,
           credentialId: credential.vcMetadata.id,
@@ -319,6 +324,12 @@ class OpenID4VP {
         disclosures.forEach(d => disclosureSet.add(d));
       }
     });
+
+    if (disclosureSet.size === 0) {
+      Object.values(pathToDisclosures).forEach(disclosures =>
+        disclosures.forEach(d => disclosureSet.add(d)),
+      );
+    }
 
     return disclosureSet.size > 0
       ? [jwt, ...disclosureSet].join('~') + '~'
@@ -420,7 +431,7 @@ function getVcsMatchingPresentationExchangeAuthRequest(
         );
 
         let shouldInclude: boolean;
-        if (inputDescriptor.constraints.fields && format) {
+        if (inputDescriptor.constraints.fields) {
           shouldInclude =
             isMatchingConstraints && areMatchingFormatAndProofType;
         } else {
@@ -465,7 +476,7 @@ function areVCFormatAndProofTypeMatchingRequest(
   vc: any,
 ): boolean {
   if (!requestFormat) {
-    return false;
+    return true;
   }
   const vcFormatType = vc.format;
   if (vcFormatType === VCFormat.ldp_vc) {
@@ -507,9 +518,11 @@ function areVCFormatAndProofTypeMatchingRequest(
       const sdJwt = vc.verifiableCredential?.credential;
       const alg = extractAlgFromSdJwt(sdJwt);
 
+      const sdJwtFormats: string[] = [VCFormat.vc_sd_jwt, VCFormat.dc_sd_jwt];
       return Object.entries(requestFormat).some(
         ([type, value]) =>
-          type === vcFormatType && value['sd-jwt_alg_values']?.includes(alg),
+          sdJwtFormats.includes(type) &&
+          value['sd-jwt_alg_values']?.includes(alg),
       );
     } catch (e) {
       console.error('Error processing SD-JWT alg match:', e);

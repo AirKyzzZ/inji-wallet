@@ -456,7 +456,7 @@ describe('OpenID4VP', () => {
       ]);
     });
 
-    it('should handle dc_sd_jwt format', async () => {
+    it('should answer a presentation exchange request for a dc_sd_jwt credential in vc_sd_jwt', async () => {
       const selectedVCs = buildSelectedVCs(
         buildVc('cred-1', 'dc_sd_jwt', 'jwt-part~', {pathToDisclosures: {}}),
       );
@@ -471,9 +471,52 @@ describe('OpenID4VP', () => {
         {
           credential: 'jwt-part~',
           credentialId: 'cred-1',
+          format: 'vc_sd_jwt',
+        },
+      ]);
+    });
+
+    it('should keep the dc_sd_jwt format for a dcql request', async () => {
+      mockedIsDcqlFlow.mockReturnValue(true);
+      const selectedVCs = buildSelectedVCs(
+        buildVc('cred-1', 'dc_sd_jwt', 'jwt-part~', {pathToDisclosures: {}}),
+      );
+
+      const result = await OpenID4VP.prepareCredentialsForVPSharing(
+        {dcql_query: {credentials: []}},
+        selectedVCs,
+        {'vc-key': []},
+      );
+
+      expect(result['inp-1']).toEqual([
+        {
+          credential: 'jwt-part~',
+          credentialId: 'cred-1',
           format: 'dc_sd_jwt',
         },
       ]);
+      mockedIsDcqlFlow.mockReturnValue(false);
+    });
+
+    it('should disclose every claim when a presentation exchange share selects none', async () => {
+      const selectedVCs = buildSelectedVCs(
+        buildVc('cred-1', 'vc_sd_jwt', 'header.payload.sig~disc1~disc2~', {
+          pathToDisclosures: {
+            name: ['disc1'],
+            email: ['disc2'],
+          },
+        }),
+      );
+
+      const result = await OpenID4VP.prepareCredentialsForVPSharing(
+        {},
+        selectedVCs,
+        {'vc-key': []},
+      );
+
+      expect(result['inp-1'][0].credential).toBe(
+        'header.payload.sig~disc1~disc2~',
+      );
     });
 
     it('should sanitize wildcard disclosure paths before lookup', async () => {

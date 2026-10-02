@@ -46,3 +46,16 @@ allprojects { repositories {
     }
 }
 // @generated end expo-camera-import
+
+allprojects {
+    repositories {
+        exclusiveContent {
+            forRepository {
+                maven { url("$rootDir/verana-maven") }
+            }
+            filter {
+                includeVersionByRegex("io\\.inji", ".*", ".*-verana\\.\\d+")
+            }
+        }
+    }
+}

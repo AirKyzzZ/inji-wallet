@@ -1,4 +1,7 @@
-import {vctFromPresentationDefinition} from './presentationVct';
+import {
+  vctFromDcqlQuery,
+  vctFromPresentationDefinition,
+} from './presentationVct';
 
 const VCT =
   'https://demo-issuer-accredited.playground.devnet.verana.network/oid4vc/vct/demo-credential';
@@ -127,4 +130,53 @@ describe('a filter that only survived as a pattern', () => {
       ),
     ).toBeUndefined();
   });
+});
+
+describe('vctFromDcqlQuery', () => {
+  const query = (...vctValues: unknown[][]) => ({
+    credentials: vctValues.map((values, index) => ({
+      id: `cs-${index}`,
+      format: 'dc+sd-jwt',
+      meta: {vct_values: values},
+      claims: [{path: ['name']}],
+    })),
+  });
+
+  it('reads the vct the devnet verifier asks for', () => {
+    expect(vctFromDcqlQuery(query([VCT]))).toBe(VCT);
+  });
+
+  it('accepts the same vct asked for by several credential queries', () => {
+    expect(vctFromDcqlQuery(query([VCT], [VCT]))).toBe(VCT);
+  });
+
+  it.each([
+    ['several vct values in one query', query([VCT, `${VCT}-2`])],
+    ['different vcts across queries', query([VCT], [`${VCT}-2`])],
+    ['no vct values', query([])],
+  ])('gives up on %s', (_, dcqlQuery) => {
+    expect(vctFromDcqlQuery(dcqlQuery)).toBeUndefined();
+  });
+
+  it('ignores queries that are not sd-jwt', () => {
+    expect(
+      vctFromDcqlQuery({
+        credentials: [
+          {
+            id: 'mdl',
+            format: 'mso_mdoc',
+            meta: {doctype_value: 'org.iso.18013.5.1.mDL'},
+          },
+          ...query([VCT]).credentials,
+        ],
+      }),
+    ).toBe(VCT);
+  });
+
+  it.each([undefined, null, {}, {credentials: 'nope'}])(
+    'returns undefined for %p',
+    value => {
+      expect(vctFromDcqlQuery(value)).toBeUndefined();
+    },
+  );
 });

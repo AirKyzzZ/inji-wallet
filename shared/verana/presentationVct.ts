@@ -40,6 +40,29 @@ const literalFromPattern = (pattern: string): string | undefined => {
   return body.replace(/\\(.)/g, '$1');
 };
 
+export const vctFromDcqlQuery = (query: unknown): string | undefined => {
+  const credentials = isRecord(query) ? query.credentials : undefined;
+  if (!Array.isArray(credentials)) {
+    return undefined;
+  }
+
+  const vcts = new Set<string>();
+  for (const credential of credentials) {
+    const values =
+      isRecord(credential) && isRecord(credential.meta)
+        ? credential.meta.vct_values
+        : undefined;
+    if (!Array.isArray(values)) {
+      continue;
+    }
+    values
+      .filter((value): value is string => typeof value === 'string')
+      .forEach(value => vcts.add(value));
+  }
+
+  return vcts.size === 1 ? [...vcts][0] : undefined;
+};
+
 export const vctFromPresentationDefinition = (
   definition: unknown,
 ): string | undefined => {

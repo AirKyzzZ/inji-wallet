@@ -2207,6 +2207,14 @@ export const DefaultTheme = {
       resizeMode: 'contain',
       marginTop: 0.08 * SCREEN_HEIGHT,
     },
+    trustIconCompact: {
+      // The trust card carries the whole verdict, so the decorative header shrinks to leave the
+      // card and the action bar in one viewport.
+      width: 0.045 * SCREEN_HEIGHT,
+      height: 0.045 * SCREEN_HEIGHT,
+      marginTop: 0.015 * SCREEN_HEIGHT,
+      marginBottom: 0.008 * SCREEN_HEIGHT,
+    },
     title: {
       fontSize: 24,
       fontWeight: '700',
@@ -2330,7 +2338,7 @@ export const DefaultTheme = {
       backgroundColor: '#fff',
       borderRadius: 20,
       width: '100%',
-      height: SCREEN_HEIGHT * 0.55,
+      maxHeight: 0.85 * SCREEN_HEIGHT,
       padding: 20,
       alignItems: 'center',
     },

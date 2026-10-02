@@ -26,7 +26,7 @@ exports[`TrustModalVerifier should match snapshot with issuer flowType 1`] = `
           "alignItems": "center",
           "backgroundColor": "#fff",
           "borderRadius": 20,
-          "height": 733.7,
+          "maxHeight": 1133.8999999999999,
           "padding": 20,
           "width": "100%",
         }
@@ -42,7 +42,7 @@ exports[`TrustModalVerifier should match snapshot with issuer flowType 1`] = `
         showsVerticalScrollIndicator={true}
         style={
           {
-            "flex": 1,
+            "flexShrink": 1,
             "width": "100%",
           }
         }
@@ -230,7 +230,9 @@ exports[`TrustModalVerifier should match snapshot with issuer flowType 1`] = `
               null,
               [
                 {
+                  "alignItems": "center",
                   "flexDirection": "row",
+                  "justifyContent": "center",
                 },
                 null,
                 null,
@@ -291,7 +293,10 @@ exports[`TrustModalVerifier should match snapshot with issuer flowType 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ]
               }
               weight="bold"
@@ -326,7 +331,10 @@ exports[`TrustModalVerifier should match snapshot with issuer flowType 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ],
               ]
             }
@@ -466,7 +474,7 @@ exports[`TrustModalVerifier should match snapshot with verifier flowType 1`] = `
           "alignItems": "center",
           "backgroundColor": "#fff",
           "borderRadius": 20,
-          "height": 733.7,
+          "maxHeight": 1133.8999999999999,
           "padding": 20,
           "width": "100%",
         }
@@ -482,7 +490,7 @@ exports[`TrustModalVerifier should match snapshot with verifier flowType 1`] = `
         showsVerticalScrollIndicator={true}
         style={
           {
-            "flex": 1,
+            "flexShrink": 1,
             "width": "100%",
           }
         }
@@ -670,7 +678,9 @@ exports[`TrustModalVerifier should match snapshot with verifier flowType 1`] = `
               null,
               [
                 {
+                  "alignItems": "center",
                   "flexDirection": "row",
+                  "justifyContent": "center",
                 },
                 null,
                 null,
@@ -731,7 +741,10 @@ exports[`TrustModalVerifier should match snapshot with verifier flowType 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ]
               }
               weight="bold"
@@ -766,7 +779,10 @@ exports[`TrustModalVerifier should match snapshot with verifier flowType 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ],
               ]
             }
@@ -906,7 +922,7 @@ exports[`TrustModalVerifier should match snapshot without logo 1`] = `
           "alignItems": "center",
           "backgroundColor": "#fff",
           "borderRadius": 20,
-          "height": 733.7,
+          "maxHeight": 1133.8999999999999,
           "padding": 20,
           "width": "100%",
         }
@@ -922,7 +938,7 @@ exports[`TrustModalVerifier should match snapshot without logo 1`] = `
         showsVerticalScrollIndicator={true}
         style={
           {
-            "flex": 1,
+            "flexShrink": 1,
             "width": "100%",
           }
         }
@@ -1110,7 +1126,9 @@ exports[`TrustModalVerifier should match snapshot without logo 1`] = `
               null,
               [
                 {
+                  "alignItems": "center",
                   "flexDirection": "row",
+                  "justifyContent": "center",
                 },
                 null,
                 null,
@@ -1171,7 +1189,10 @@ exports[`TrustModalVerifier should match snapshot without logo 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ]
               }
               weight="bold"
@@ -1206,7 +1227,10 @@ exports[`TrustModalVerifier should match snapshot without logo 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ],
               ]
             }
@@ -1346,7 +1370,7 @@ exports[`TrustModalVerifier should match snapshot without name 1`] = `
           "alignItems": "center",
           "backgroundColor": "#fff",
           "borderRadius": 20,
-          "height": 733.7,
+          "maxHeight": 1133.8999999999999,
           "padding": 20,
           "width": "100%",
         }
@@ -1362,7 +1386,7 @@ exports[`TrustModalVerifier should match snapshot without name 1`] = `
         showsVerticalScrollIndicator={true}
         style={
           {
-            "flex": 1,
+            "flexShrink": 1,
             "width": "100%",
           }
         }
@@ -1537,7 +1561,9 @@ exports[`TrustModalVerifier should match snapshot without name 1`] = `
               null,
               [
                 {
+                  "alignItems": "center",
                   "flexDirection": "row",
+                  "justifyContent": "center",
                 },
                 null,
                 null,
@@ -1598,7 +1624,10 @@ exports[`TrustModalVerifier should match snapshot without name 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ]
               }
               weight="bold"
@@ -1633,7 +1662,10 @@ exports[`TrustModalVerifier should match snapshot without name 1`] = `
                   {
                     "paddingLeft": 0,
                   },
-                  undefined,
+                  {
+                    "flex": 1,
+                    "textAlign": "center",
+                  },
                 ],
               ]
             }

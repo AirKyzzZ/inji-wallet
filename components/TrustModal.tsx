@@ -5,6 +5,9 @@ import {useTranslation} from 'react-i18next';
 import {Button} from './ui';
 import {Theme} from './ui/styleUtils';
 import {DeeplinkBanner} from './DeeplinkBanner';
+import type {VeranaTrust} from '../shared/verana/useVeranaTrust';
+import VeranaTrustCard from './VeranaTrustCard/VeranaTrustCard';
+import {VERANA_STRINGS} from './VeranaTrustCard/strings';
 
 type ConsentStatus = 'idle' | 'loading' | 'success';
 
@@ -18,6 +21,9 @@ interface TrustModalProps {
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   consentStatus: ConsentStatus;
+  /** Absent when the issuer does not identify by DID, in which case no card is drawn. */
+  verana?: VeranaTrust;
+  credentialName?: string;
 }
 
 export const TrustModal = memo(
@@ -28,6 +34,8 @@ export const TrustModal = memo(
     onConfirm,
     onCancel,
     consentStatus,
+    verana,
+    credentialName,
   }: TrustModalProps) => {
     const {t} = useTranslation('issuerTrustScreen');
 
@@ -75,7 +83,12 @@ export const TrustModal = memo(
             bounces={false}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{flexGrow: 1}}>
-            <View style={{flexGrow: 1, maxHeight: SCREEN_HEIGHT * 0.25}} />
+            <View
+              style={{
+                flexGrow: 1,
+                maxHeight: SCREEN_HEIGHT * (verana?.did ? 0.03 : 0.25),
+              }}
+            />
 
             {isSuccess ? (
               <SuccessSection
@@ -87,7 +100,35 @@ export const TrustModal = memo(
             ) : (
               <>
                 <View style={Theme.TrustIssuerScreenStyle.coverCard}>
-                  <HeaderSection t={t} />
+                  <HeaderSection t={t} compact={!!verana?.did} />
+                  {verana?.did && (
+                    <VeranaTrustCard
+                      did={verana.did}
+                      serviceInfo={verana.serviceInfo}
+                      trustStatus={verana.trustStatus}
+                      reason={verana.reason}
+                      networkLabel={verana.networkLabel}
+                      explorerUrl={verana.explorerUrl}
+                      evaluatedAt={verana.evaluatedAt}
+                      onRetry={verana.retry}
+                      isFetchingInfo={verana.isResolving}
+                      isResolving={verana.isResolving}
+                      ask={
+                        verana.accreditation || verana.isCheckingAccreditation
+                          ? {
+                              kind: 'offer',
+                              credential:
+                                credentialName ??
+                                verana.credentialName ??
+                                VERANA_STRINGS.thisCredential,
+                              party: verana.serviceInfo?.name || name,
+                              accreditation: verana.accreditation,
+                              isChecking: verana.isCheckingAccreditation,
+                            }
+                          : undefined
+                      }
+                    />
+                  )}
                   <IssuerCardSection
                     t={t}
                     logo={logo}
@@ -98,6 +139,7 @@ export const TrustModal = memo(
                 <ActionsSection
                   t={t}
                   isLoading={isLoading}
+                  blocked={verana?.blocked ?? false}
                   onConfirm={onConfirm}
                   onCancel={onCancel}
                 />
@@ -112,11 +154,14 @@ export const TrustModal = memo(
 
 TrustModal.displayName = 'TrustModal';
 
-const HeaderSection = ({t}: {t: any}) => (
+const HeaderSection = ({t, compact}: {t: any; compact?: boolean}) => (
   <View style={Theme.TrustIssuerScreenStyle.header}>
     <Image
       source={require('../assets/TrustLogo.jpg')}
-      style={Theme.TrustIssuerScreenStyle.trustIcon}
+      style={[
+        Theme.TrustIssuerScreenStyle.trustIcon,
+        compact && Theme.TrustIssuerScreenStyle.trustIconCompact,
+      ]}
     />
     <Text style={Theme.TrustIssuerScreenStyle.title}>{t('title')}</Text>
     <Text style={Theme.TrustIssuerScreenStyle.subtitle}>{t('subTitle')}</Text>
@@ -135,11 +180,13 @@ const IssuerCardSection = ({
   infoPoints: string[];
 }) => (
   <View style={Theme.TrustIssuerScreenStyle.card}>
-    <View
-      style={[
+    <ScrollView
+      style={{maxHeight: 120, width: '100%'}}
+      contentContainerStyle={[
         Theme.TrustIssuerScreenStyle.cardHeader,
         {marginTop: 0.037 * SCREEN_HEIGHT},
-      ]}>
+      ]}
+      showsVerticalScrollIndicator={true}>
       {logo && (
         <Image
           source={{uri: logo}}
@@ -147,7 +194,7 @@ const IssuerCardSection = ({
         />
       )}
       <Text style={Theme.TrustIssuerScreenStyle.issuerName}>{name}</Text>
-    </View>
+    </ScrollView>
 
     <Text style={Theme.TrustIssuerScreenStyle.cardDescription}>
       {t('description')}
@@ -210,21 +257,25 @@ const SuccessSection = ({
 const ActionsSection = ({
   t,
   isLoading,
+  blocked,
   onConfirm,
   onCancel,
 }: {
   t: any;
   isLoading: boolean;
+  blocked: boolean;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
 }) => (
   <View style={Theme.TrustIssuerScreenStyle.actions}>
     <Button
       customLoader={isLoading}
+      disabled={blocked}
       title={isLoading ? t('inProgress') : t('confirm')}
       type="gradient"
+      titleStyle={{flex: 1, textAlign: 'center'}}
       onPress={
-        isLoading
+        isLoading || blocked
           ? () => {
               null;
             }

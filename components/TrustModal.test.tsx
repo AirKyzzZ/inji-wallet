@@ -1,5 +1,5 @@
 import React from 'react';
-import {render} from '@testing-library/react-native';
+import {fireEvent, render} from '@testing-library/react-native';
 import {TrustModal} from './TrustModal';
 
 // Mock useTranslation hook
@@ -61,10 +61,85 @@ describe('TrustModal', () => {
     onCancel: jest.fn(),
   };
 
+  const veranaTrust = (overrides = {}) =>
+    ({
+      did: 'did:webvh:QmDemo:issuer.example',
+      trustStatus: 'TRUSTED',
+      isResolving: false,
+      isCheckingAccreditation: false,
+      blocked: false,
+      ...overrides,
+    } as any);
+
   it('matches snapshot in idle state', () => {
     const {toJSON} = render(<TrustModal {...baseProps} consentStatus="idle" />);
 
     expect(toJSON()).toMatchSnapshot();
+  });
+
+  it('states the issuer accreditation even when the credential has no name', () => {
+    const {getByText} = render(
+      <TrustModal
+        {...baseProps}
+        consentStatus="idle"
+        verana={veranaTrust({
+          accreditation: {granted: false, reason: 'no issuer permission'},
+        })}
+      />,
+    );
+
+    expect(getByText('OFFERS YOU')).toBeTruthy();
+    expect(getByText('this credential')).toBeTruthy();
+  });
+
+  it('names the credential the accreditation was checked against', () => {
+    const {getByText} = render(
+      <TrustModal
+        {...baseProps}
+        consentStatus="idle"
+        verana={veranaTrust({
+          accreditation: {granted: true},
+          credentialName: 'DemoCredential',
+        })}
+      />,
+    );
+
+    expect(getByText('DemoCredential')).toBeTruthy();
+  });
+
+  it('labels the network and names the ecosystem of the accreditation', () => {
+    const {getByText} = render(
+      <TrustModal
+        {...baseProps}
+        consentStatus="idle"
+        verana={veranaTrust({
+          networkLabel: 'DEVNET',
+          accreditation: {granted: true, ecosystemName: 'Playground Demo'},
+          credentialName: 'DemoCredential',
+        })}
+      />,
+    );
+
+    expect(getByText('DEVNET')).toBeTruthy();
+    expect(
+      getByText(
+        'Test Issuer is an authorized issuer of DemoCredential in Playground Demo',
+      ),
+    ).toBeTruthy();
+  });
+
+  it('offers a retry when the registry could not be reached', () => {
+    const retry = jest.fn();
+    const {getByText} = render(
+      <TrustModal
+        {...baseProps}
+        consentStatus="idle"
+        verana={veranaTrust({trustStatus: 'UNVERIFIED', blocked: true, retry})}
+      />,
+    );
+
+    fireEvent.press(getByText('Retry'));
+    expect(retry).toHaveBeenCalled();
   });
 
   it('matches snapshot in loading state', () => {

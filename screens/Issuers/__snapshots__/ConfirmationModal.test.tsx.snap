@@ -118,7 +118,9 @@ exports[`CancelDownloadModal should match snapshot when visible 1`] = `
             null,
             [
               {
+                "alignItems": "center",
                 "flexDirection": "row",
+                "justifyContent": "center",
               },
               null,
               null,
